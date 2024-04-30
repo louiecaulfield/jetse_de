@@ -5,9 +5,9 @@
 #include <RF24.h>
 
 RF24 radio(8, 7); // CE, CSN
-const byte address[6] = "00009";
 
 #include <packet.h>
+const byte address[6] = address_for(9);
 packet_t packet = {};
 
 void setup() {
@@ -21,7 +21,13 @@ void setup() {
   // radio.setDataRate(RF24_250KBPS);
   // radio.setRetries(3,5);
   radio.openReadingPipe(1, address);
-  radio.printDetails();
+  // radio.printDetails();
+  Serial.print("float = "); Serial.println(sizeof(float));
+  Serial.print("byte = "); Serial.println(sizeof(byte));
+  Serial.print("ulong = "); Serial.println(sizeof(unsigned long));
+  Serial.print("bool = "); Serial.println(sizeof(bool));
+  Serial.print("packet = "); Serial.println(sizeof(packet));
+
 }
 
 char rf24_msg[100] = "";
@@ -29,7 +35,14 @@ char rf24_msg[100] = "";
 void loop() {
   radio.startListening();
   if (radio.available()) {
+    Serial.print("Receiving ");
+    Serial.println(sizeof(packet));
     radio.read(&packet, sizeof(packet));
+    for(int i =0;i<sizeof(packet); i++) {
+      Serial.print(((byte*)&packet)[i],HEX);
+      Serial.print(" ");
+    }
+    Serial.println();
     sprintf(rf24_msg, "Accelero %05.2f / %05.2f / %05.2f (%d) - KNOCK %d @ %lu ms",
                       packet.x, packet.y, packet.z,
                       packet.motion,
