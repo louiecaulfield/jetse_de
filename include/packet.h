@@ -6,8 +6,8 @@
 #define xstr(s) str(s)
 #define str(s) #s
 
-#define PREFIX "100F"
-#define address_for(INDEX) xstr(INDEX) PREFIX
+#define CHANNEL_ZERO 0xBAE1F00100
+#define address_for(channel) (CHANNEL_ZERO | (channel & 0xFF))
 
 struct __attribute__ ((packed)) packet_t {
     uint8_t id;
