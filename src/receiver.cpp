@@ -18,11 +18,11 @@ void setup() {
   radio.setPALevel(RF24_PA_LOW);
   radio.setDataRate(RF24_2MBPS);
   radio.openReadingPipe(1, address_for(9));
+  radio.startListening();
 }
 
 uint8_t checksum;
 void loop() {
-  radio.startListening();
   if (radio.available()) {
     radio.read(&packet, sizeof(packet));
     /* 0xBAE1 = Baetelaan magic */
@@ -34,8 +34,9 @@ void loop() {
 
     /* Simple checksum */
     checksum = 0;
-    for(int i=0; i < sizeof(packet); i++)
+    for(int i=0; i < sizeof(packet); i++) {
       checksum += ((uint8_t *)&packet)[i];
+    }
     Serial.write(checksum);
   }
 }
