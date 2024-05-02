@@ -10,14 +10,22 @@
 #define address_for(channel) (CHANNEL_ZERO | (channel & 0xFF))
 
 struct __attribute__ ((packed)) packet_t {
+    /* Detector ID */
     uint8_t id;
+
+    /* Flags */
     uint8_t motion:1;
     uint8_t knock:2;
+
+    /* Time of system and last interrupts */
     unsigned long time;
+    unsigned long time_last_knock;
+    unsigned long time_last_motion;
+
+    /* Accelerometer reading */
     float x;
     float y;
     float z;
-    unsigned long last_knock_time;
 };
 
 #endif // _PACKET_H_

@@ -2,39 +2,41 @@
 
 import serial
 import struct
-# import argparse
+from termcolor import colored
 
 # parser = argparse.ArgumentParser()
-packet_format = '<HBBLfffLB'
+packet_format = '<HBBLLLfffB'
 packet_size = struct.calcsize(packet_format)
 
 class Packet():
     def __init__(self, id:int, time:int,
-                 knock:bool, knock_time:int,
-                 motion: bool, acc:tuple[float, float, float]):
+                 knock: bool, knock_time:int,
+                 motion: bool, motion_time: int, acc:tuple[float, float, float]):
         self.id = id
         self.time = time
 
         self.knock = knock
         self.knock_time = knock_time
 
+        self.motion_time = motion_time
         self.motion = motion
         self.acc = acc
 
     def __repr__(self) -> str:
         str = f"[{self.id} - {self.time} ms"
-        if self.knock:
-            str += f" - KNOCK @ {self.knock_time} ms"
-        if self.motion:
-            str += f" - MOTION <" + ",".join([f"{v:5.2f}" for v in self.acc]) + ">"
+        # if self.knock:
+        str += f" - KNOCK @{self.knock_time}ms "
+        # if self.motion:
+        str += f" - MOTION @{self.motion_time}ms" + \
+                    "<" + ",".join([f"{v:5.2f}" for v in self.acc]) + ">"
         str += "]"
         return str
 
     @classmethod
     def from_bytes(cls, buf) -> "Packet":
-        (magic, id, flags, time, \
-            acc_x, acc_y, acc_z, \
-                knock_time, checksum_exp) = struct.unpack(packet_format, buf)
+        (magic, id, flags, \
+            time, time_last_knock, time_last_motion,
+            acc_x, acc_y, acc_z, checksum_exp) = struct.unpack(packet_format, buf)
 
         if magic != 0xE1BA:
             print(f"Unexpected magic {magic:04X}")
@@ -46,8 +48,8 @@ class Packet():
             return None
 
         return cls(id, time,
-                flags & 0x2, knock_time,
-                flags & 0x1, (acc_x, acc_y, acc_z))
+                flags & 0x2, time_last_knock,
+                flags & 0x1, time_last_motion, (acc_x, acc_y, acc_z))
 
 if __name__ == '__main__':
     port = "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0"
@@ -56,4 +58,4 @@ if __name__ == '__main__':
     ser.open()
     while(True):
         packet = Packet.from_bytes(ser.read(packet_size))
-        print(packet)
+        print(colored(str(packet), 'red' if packet.motion else 'green' if packet.knock else 'white'))
