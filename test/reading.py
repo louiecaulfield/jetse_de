@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import argparse
 import serial
+import collections
 import struct
+from statistics import mean
 from termcolor import colored
 from pythonosc import udp_client
 from pythonosc.osc_message_builder import OscMessageBuilder
@@ -68,8 +70,16 @@ if __name__ == '__main__':
     ser = serial.Serial(port, 115200)
     ser.close()
     ser.open()
+
+    deltas = collections.deque([1], maxlen=100)
+    last_time = 0
     while(True):
         packet = Packet.from_bytes(ser.read(packet_size))
+
+        if last_time != 0:
+            deltas.append(packet.time - last_time)
+        last_time = packet.time
+
         prefix = f"/foot/{packet.id}"
         message = {
             "/time": packet.time,
@@ -85,4 +95,4 @@ if __name__ == '__main__':
         msg_acc = OscMessageBuilder(prefix + "/acc")
         [msg_acc.add_arg(x) for x in packet.acc]
         client.send(msg_acc.build())
-        print(colored(str(packet), 'red' if packet.motion else 'green' if packet.knock else 'white'))
+        print(colored(f"{1e3/mean(deltas):5.2f}Hz", 'yellow') + colored(str(packet), 'red' if packet.motion else 'green' if packet.knock else 'white'))
