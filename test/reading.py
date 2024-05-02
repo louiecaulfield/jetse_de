@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-
+import argparse
 import serial
 import struct
 from termcolor import colored
+from pythonosc import udp_client
+from pythonosc.osc_message_builder import OscMessageBuilder
 
 # parser = argparse.ArgumentParser()
 packet_format = '<HBBLLLfffB'
@@ -18,8 +20,8 @@ class Packet():
         self.knock = knock
         self.knock_time = knock_time
 
-        self.motion_time = motion_time
         self.motion = motion
+        self.motion_time = motion_time
         self.acc = acc
 
     def __repr__(self) -> str:
@@ -51,11 +53,36 @@ class Packet():
                 flags & 0x2, time_last_knock,
                 flags & 0x1, time_last_motion, (acc_x, acc_y, acc_z))
 
+
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ip", default="127.0.0.1",
+        help="The ip of the OSC server")
+    parser.add_argument("--port", type=int, default=5005,
+        help="The port the OSC server is listening on")
+    args = parser.parse_args()
+
+    client = udp_client.SimpleUDPClient(args.ip, args.port)
+
     port = "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0"
     ser = serial.Serial(port, 115200)
     ser.close()
     ser.open()
     while(True):
         packet = Packet.from_bytes(ser.read(packet_size))
+        prefix = f"/foot/{packet.id}"
+        message = {
+            "/time": packet.time,
+            "/knock": packet.knock,
+            "/knock_time": packet.knock_time,
+
+            "/motion": packet.motion,
+            "/motion_time": packet.motion,
+
+        }
+        for k,v in message.items():
+            client.send_message(prefix + k, v)
+        msg_acc = OscMessageBuilder(prefix + "/acc")
+        [msg_acc.add_arg(x) for x in packet.acc]
+        client.send(msg_acc.build())
         print(colored(str(packet), 'red' if packet.motion else 'green' if packet.knock else 'white'))
