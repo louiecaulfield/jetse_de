@@ -61,6 +61,7 @@ void setup(void) {
   /* RF24 Radio */
   Serial.println("RF24 transmitter setup...");
   radio.begin();
+  radio.setDataRate(RF24_2MBPS);
   // radio.setPALevel(RF24_PA_LOW);
   // radio.setRetries(3,5);
   radio.openWritingPipe(address_for(CHANNEL));
@@ -83,7 +84,6 @@ char debug_msg[100] = "";
 sensors_event_t a, g, temp;
 
 void loop() {
-
   mpu.getEvent(&a, &g, &temp);
 
   packet.x = a.acceleration.x;

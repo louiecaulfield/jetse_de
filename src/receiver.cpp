@@ -16,6 +16,7 @@ void setup() {
 
   radio.begin();
   radio.setPALevel(RF24_PA_LOW);
+  radio.setDataRate(RF24_2MBPS);
   radio.openReadingPipe(1, address_for(9));
 }
 
