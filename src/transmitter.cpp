@@ -4,6 +4,7 @@
 #include <packet.h>
 #define CHANNEL 9
 packet_t packet = {};
+packet_conf_t packet_conf = {};
 
 #include <SPI.h>
 #include <nRF24L01.h>
@@ -29,7 +30,10 @@ void ICACHE_RAM_ATTR knock_falling() {
 }
 
 #define send_all true
-// #define SERIAL_DEBUG
+#define SERIAL_DEBUG 1
+#if SERIAL_DEBUG
+char debug_msg[100] = "";
+#endif
 
 void setup(void) {
   Serial.begin(115200);
@@ -47,7 +51,7 @@ void setup(void) {
 
   /* MPU */
   mpu.setHighPassFilter(MPU6050_HIGHPASS_0_63_HZ);
-  mpu.setMotionDetectionThreshold(5); //LSB = 2mg
+  mpu.setMotionDetectionThreshold(50); //LSB = 2mg
   mpu.setMotionDetectionDuration(10); //ms
   mpu.setInterruptPinLatch(false);
   mpu.setInterruptPinPolarity(false);
@@ -61,9 +65,11 @@ void setup(void) {
   /* RF24 Radio */
   Serial.println("RF24 transmitter setup...");
   radio.begin();
+  radio.setPALevel(RF24_PA_LOW);
+  radio.enableDynamicPayloads();
+  radio.enableAckPayload();
   radio.setDataRate(RF24_2MBPS);
-  // radio.setPALevel(RF24_PA_LOW);
-  // radio.setRetries(3,5);
+
   radio.openWritingPipe(address_for(CHANNEL));
   radio.stopListening();
   radio.printDetails();
@@ -78,10 +84,21 @@ void setup(void) {
   packet.id = CHANNEL;
 }
 
-#ifdef SERIAL_DEBUG
-char debug_msg[100] = "";
+void update_config(packet_conf_t* config) {
+#if SERIAL_DEBUG
+  sprintf(debug_msg, "CONF [%d] THR [%d]", packet_conf.id, packet_conf.threshold);
+  Serial.println(debug_msg);
 #endif
+  if(config->id == CHANNEL) {
+    /* Perform update */
+  } else {
+    sprintf(debug_msg, "Config received for wrong channel %d (expecting " xstr(CHANNEL) ")", packet_conf.id);
+    Serial.println(debug_msg);
+  }
+}
+
 sensors_event_t a, g, temp;
+uint8_t pipe = 0;
 
 void loop() {
   mpu.getEvent(&a, &g, &temp);
@@ -97,7 +114,7 @@ void loop() {
   packet.time = millis();
 
   if(send_all || packet.motion || packet.knock) {
-#ifdef SERIAL_DEBUG
+#if SERIAL_DEBUG
     acc_abs = abs(packet.x) + abs(packet.y) + abs(packet.z);
     sprintf(debug_msg, "[%d] [ACC] %05.2f / %05.2f / %05.2f (%d/%d@%lu) - [KNOCK] %d @ %lu ms [%d]",
                       packet.id,
@@ -110,6 +127,17 @@ void loop() {
                       sizeof(packet));
     Serial.println(debug_msg);
 #endif
-    radio.write(&packet, sizeof(packet));
+    if(radio.write(&packet, sizeof(packet))) {
+      if (radio.available(&pipe)) {
+        uint8_t size = radio.getDynamicPayloadSize();
+        if(size != sizeof(packet_conf)) {
+          sprintf(debug_msg, "Unexpected ACK payload size of %d", size);
+          Serial.println(debug_msg);
+        }
+        radio.read(&packet_conf, sizeof(packet_conf));
+        update_config(&packet_conf);
+      }
+    }
+    delay(500);
   }
 }

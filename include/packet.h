@@ -28,4 +28,9 @@ struct __attribute__ ((packed)) packet_t {
     float z;
 };
 
+struct __attribute__ ((packed)) packet_conf_t {
+    uint8_t id;
+    uint8_t threshold;
+};
+
 #endif // _PACKET_H_
