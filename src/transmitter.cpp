@@ -1,8 +1,9 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+#define SERIAL_DEBUG 1
 #include <packet.h>
-#define CHANNEL 9
+#define CHANNEL 1
 packet_t packet = {};
 conf_t config = {};
 
@@ -83,7 +84,7 @@ void setup(void) {
 void update_config(conf_t* config) {
   log_debug_fmt("CONF [%d] THR [%d]", config->id, config->threshold);
   if(config->id == CHANNEL) {
-    /* Perform update */
+    mpu.setMotionDetectionThreshold(config->threshold);
   } else {
     log_debug_fmt("Config received for wrong channel %d (expecting " xstr(CHANNEL) ")", config->id);
   }
@@ -116,7 +117,7 @@ void loop() {
               packet.time_last_motion,
               packet.knock,
               packet.time_last_knock,
-              sizeof(packet)));
+              sizeof(packet));
 #endif
     if(radio.write(&packet, sizeof(packet))) {
       if (radio.available(&pipe)) {
@@ -128,6 +129,5 @@ void loop() {
         update_config(&config);
       }
     }
-    delay(500);
   }
 }
