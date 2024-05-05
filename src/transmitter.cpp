@@ -4,7 +4,7 @@
 #include <packet.h>
 #define CHANNEL 9
 packet_t packet = {};
-packet_conf_t packet_conf = {};
+conf_t config = {};
 
 #include <SPI.h>
 #include <nRF24L01.h>
@@ -30,10 +30,6 @@ void ICACHE_RAM_ATTR knock_falling() {
 }
 
 #define send_all true
-#define SERIAL_DEBUG 1
-#if SERIAL_DEBUG
-char debug_msg[100] = "";
-#endif
 
 void setup(void) {
   Serial.begin(115200);
@@ -84,16 +80,12 @@ void setup(void) {
   packet.id = CHANNEL;
 }
 
-void update_config(packet_conf_t* config) {
-#if SERIAL_DEBUG
-  sprintf(debug_msg, "CONF [%d] THR [%d]", packet_conf.id, packet_conf.threshold);
-  Serial.println(debug_msg);
-#endif
+void update_config(conf_t* config) {
+  log_debug_fmt("CONF [%d] THR [%d]", config->id, config->threshold);
   if(config->id == CHANNEL) {
     /* Perform update */
   } else {
-    sprintf(debug_msg, "Config received for wrong channel %d (expecting " xstr(CHANNEL) ")", packet_conf.id);
-    Serial.println(debug_msg);
+    log_debug_fmt("Config received for wrong channel %d (expecting " xstr(CHANNEL) ")", config->id);
   }
 }
 
@@ -116,26 +108,24 @@ void loop() {
   if(send_all || packet.motion || packet.knock) {
 #if SERIAL_DEBUG
     acc_abs = abs(packet.x) + abs(packet.y) + abs(packet.z);
-    sprintf(debug_msg, "[%d] [ACC] %05.2f / %05.2f / %05.2f (%d/%d@%lu) - [KNOCK] %d @ %lu ms [%d]",
-                      packet.id,
-                      packet.x, packet.y, packet.z,
-                      packet.motion,
-                      digitalRead(PIN_MOTION),
-                      packet.time_last_motion,
-                      packet.knock,
-                      packet.time_last_knock,
-                      sizeof(packet));
-    Serial.println(debug_msg);
+    log_debug_fmt("[%d] [ACC] %05.2f / %05.2f / %05.2f (%d/%d@%lu) - [KNOCK] %d @ %lu ms [%d]",
+              packet.id,
+              packet.x, packet.y, packet.z,
+              packet.motion,
+              digitalRead(PIN_MOTION),
+              packet.time_last_motion,
+              packet.knock,
+              packet.time_last_knock,
+              sizeof(packet)));
 #endif
     if(radio.write(&packet, sizeof(packet))) {
       if (radio.available(&pipe)) {
         uint8_t size = radio.getDynamicPayloadSize();
-        if(size != sizeof(packet_conf)) {
-          sprintf(debug_msg, "Unexpected ACK payload size of %d", size);
-          Serial.println(debug_msg);
+        if(size != sizeof(config)) {
+          log_debug_fmt("Unexpected ACK payload size of %d", size);
         }
-        radio.read(&packet_conf, sizeof(packet_conf));
-        update_config(&packet_conf);
+        radio.read(&config, sizeof(config));
+        update_config(&config);
       }
     }
     delay(500);

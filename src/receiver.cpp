@@ -6,10 +6,11 @@
 
 RF24 radio(8, 7); // CE, CSN
 
+#define SERIAL_DEBUG 0
 #include <packet.h>
 packet_t packet = {};
 #define PIPES 6
-packet_conf_t config[PIPES] = {
+conf_t config[PIPES] = {
   {.id=0, .threshold=50},
   {.id=1, .threshold=50},
   {.id=2, .threshold=50},
@@ -18,8 +19,7 @@ packet_conf_t config[PIPES] = {
   {.id=5, .threshold=50},
 };
 bool config_update[PIPES];
-
-#define SERIAL_DEBUG 1
+packet_conf_t config_packet;
 
 void setup() {
   Serial.begin(115200);
@@ -57,10 +57,6 @@ void serial_transmit(uint8_t * buf, int len) {
     Serial.write(checksum);
 }
 
-#if SERIAL_DEBUG
-char debug_msg[100] = "";
-#endif
-
 int find_pipe_for_channel(uint8_t channel) {
   for(uint8_t i = 0; i < PIPES; i++) {
     if(config[i].id == channel)
@@ -69,16 +65,54 @@ int find_pipe_for_channel(uint8_t channel) {
   return -1;
 }
 
+bool receive_config() {
+  if(Serial.available() < (int)sizeof(config_packet))
+    return false;
+
+  Serial.readBytes((uint8_t *)&config_packet, sizeof(config_packet));
+  if(config_packet.magic != 0xBAE1) {
+    log_debug("Invalid magic");
+    while(Serial.read()) {}
+    return false;
+  }
+
+  uint8_t checksum = 0;
+  for(uint8_t i = 0; i < sizeof(config_packet) - 1; i++)
+    checksum += ((uint8_t*)&config_packet)[i];
+  if (checksum != config_packet.checksum) {
+    log_debug("Invalid checksum");
+    while(Serial.read()) {}
+    return false;
+  }
+
+  int pipe = find_pipe_for_channel(config_packet.payload.id);
+  if (pipe < 0) {
+    log_debug("Invalid pipe");
+    return false;
+  }
+
+  log_debug_fmt("Updating channel %d threshold to %d (pipe %d)",
+                config_packet.payload.id,
+                config_packet.payload.threshold,
+                pipe);
+  config[pipe].threshold = config_packet.payload.threshold;
+  config_update[pipe] = true;
+  return true;
+}
+
 void send_config(int pipe) {
   if(pipe < 0 || pipe >= PIPES)
     return;
 
+  if(!config_update[pipe])
+    return;
+
   if(radio.isFifo(true) == 2) { /* Fifo full */
-#if SERIAL_DEBUG
-    Serial.println("Flushing TX FIFO");
-#endif
+    log_debug("Flushing TX FIFO");
     radio.flush_tx();
   }
+  log_debug_fmt("Writing ACK payload on pipe %d: [Ch %d].threshold=%d",
+                  pipe, config[pipe].id, config[pipe].threshold);
   config_update[pipe] = !radio.writeAckPayload(pipe, &config[pipe], sizeof(config[0]));
 }
 
@@ -87,32 +121,22 @@ void loop() {
   if (radio.available()) {
     radio.read(&packet, sizeof(packet));
     pipe = find_pipe_for_channel(packet.id);
-#if SERIAL_DEBUG
-    sprintf(debug_msg, "[%lu] [%d] [ACC] %05.2f / %05.2f / %05.2f (%d@%lu) - [KNOCK] %d @ %lu ms [%d]",
-                      packet.time,
-                      packet.id,
-                      packet.x, packet.y, packet.z,
-                      packet.motion,
-                      packet.time_last_motion,
-                      packet.knock,
-                      packet.time_last_knock,
-                      sizeof(packet));
-    Serial.println(debug_msg);
+    log_debug_fmt("[%lu] [%d] [ACC] %05.2f / %05.2f / %05.2f (%d@%lu) - [KNOCK] %d @ %lu ms [%d]",
+                    packet.time,
+                    packet.id,
+                    packet.x, packet.y, packet.z,
+                    packet.motion,
+                    packet.time_last_motion,
+                    packet.knock,
+                    packet.time_last_knock,
+                    sizeof(packet));
     if(pipe < 0 || pipe >= PIPES) {
-      sprintf(debug_msg, "Invalid channel id %d for pipe with address ???", packet.id);
-      Serial.println(debug_msg);
-    } else {
-      config[pipe].threshold += 1;
-      sprintf(debug_msg, "CONF = [%d] -> [%d]", config[pipe].id, config[pipe].threshold);
-      Serial.println(debug_msg);
+      log_debug_fmt("Invalid channel id %d for pipe with address ???", packet.id);
     }
-#else
+#if(!SERIAL_DEBUG)
     serial_transmit((uint8_t *)&packet, sizeof(packet));
-    if(Serial.available() >= sizeof(config)) {
-      Serial.readBytes((uint8_t *)&config, sizeof(config));
-      radio.writeAckPayload(1, &config, sizeof(config));
-    }
 #endif
     send_config(pipe);
   }
+  receive_config();
 }
