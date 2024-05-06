@@ -22,19 +22,24 @@ struct __attribute__ ((packed)) packet_t {
     /* Detector ID */
     uint8_t id;
 
-    /* Flags */
-    uint8_t motion:1;
-    uint8_t knock:2;
-
     /* Time of system and last interrupts */
     unsigned long time;
-    unsigned long time_last_knock;
     unsigned long time_last_motion;
 
     /* Accelerometer reading */
-    float x;
-    float y;
-    float z;
+    int16_t x;
+    int16_t y;
+    int16_t z;
+    union {
+        uint8_t motion;
+        uint8_t _unused:2;
+        uint8_t motion_z_pos:1;
+        uint8_t motion_z_neg:1;
+        uint8_t motion_y_pos:1;
+        uint8_t motion_y_neg:1;
+        uint8_t motion_x_pos:1;
+        uint8_t motion_x_neg:1;
+    };
 };
 
 struct __attribute__ ((packed)) conf_t {

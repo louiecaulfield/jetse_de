@@ -7,8 +7,10 @@
 RF24 radio(8, 7); // CE, CSN
 
 #define SERIAL_DEBUG 0
+
 #include <packet.h>
 packet_t packet = {};
+
 #define PIPES 6
 conf_t config[PIPES] = {
   {.id=0, .threshold=50},
@@ -18,6 +20,7 @@ conf_t config[PIPES] = {
   {.id=9, .threshold=50},
   {.id=5, .threshold=50},
 };
+
 bool config_update[PIPES];
 packet_conf_t config_packet;
 
@@ -34,7 +37,7 @@ void setup() {
 
   for(uint8_t i = 0; i < PIPES; i++) {
     radio.openReadingPipe(i, address_for(config[i].id));
-    config_update[i] = true;
+    config_update[i] = false;
   }
 
   radio.startListening();
@@ -121,15 +124,14 @@ void loop() {
   if (radio.available()) {
     radio.read(&packet, sizeof(packet));
     pipe = find_pipe_for_channel(packet.id);
-    log_debug_fmt("[%lu] [%d] [ACC] %05.2f / %05.2f / %05.2f (%d@%lu) - [KNOCK] %d @ %lu ms [%d]",
-                    packet.time,
-                    packet.id,
-                    packet.x, packet.y, packet.z,
-                    packet.motion,
-                    packet.time_last_motion,
-                    packet.knock,
-                    packet.time_last_knock,
-                    sizeof(packet));
+    log_debug_fmt("[%lu] [%d] [ACC] %5d / %5d / %5d (%02X@%lu ms) [%d]",
+      packet.time,
+      packet.id,
+      packet.x, packet.y, packet.z,
+      packet.motion,
+      packet.time_last_motion,
+      sizeof(packet));
+
     if(pipe < 0 || pipe >= PIPES) {
       log_debug_fmt("Invalid channel id %d for pipe with address ???", packet.id);
     }
