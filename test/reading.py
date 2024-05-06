@@ -11,41 +11,41 @@ import pythonosc.osc_server as osc_server
 import threading
 from pythonosc.dispatcher import Dispatcher
 import queue
+import time
 
 import asyncio
 
-packet_format = '<HBBLLLfffB'
+packet_format = '<HBLLhhhBB'
 packet_size = struct.calcsize(packet_format)
 
+motion_keys =  ["z_pos", "z_neg", "y_pos", "y_neg", "x_pos", "x_neg"]
+motion_keys_short =  ["Z", "z", "Y", "y", "X", "x"]
 class Packet():
     def __init__(self, id:int, time:int,
-                 knock: bool, knock_time:int,
-                 motion: bool, motion_time: int, acc:tuple[float, float, float]):
+                 motion: list[bool], motion_time: int, acc:tuple[float, float, float]):
         self.id = id
         self.time = time
-
-        self.knock = knock
-        self.knock_time = knock_time
-
         self.motion = motion
         self.motion_time = motion_time
         self.acc = acc
 
     def __repr__(self) -> str:
-        str = f"[{self.id} - {self.time} ms"
-        # if self.knock:
-        str += f" - KNOCK @{self.knock_time}ms "
+        motion_str = "".join([motion_keys_short[i] if v else " " for i, v in enumerate(self.motion)])
+
+        str = f"[{self.id} - {self.time:10d} ms"
         # if self.motion:
-        str += f" - MOTION @{self.motion_time}ms" + \
-                    "<" + ",".join([f"{v:5.2f}" for v in self.acc]) + ">"
+        str += f" - MOTION @{self.motion_time:10d}ms" + \
+                    "<" + ",".join([f"{v:7d}" for v in self.acc]) + f"> {motion_str}"
         str += "]"
         return str
 
     @classmethod
     def from_bytes(cls, buf) -> "Packet":
-        (magic, id, flags, \
-            time, time_last_knock, time_last_motion,
-            acc_x, acc_y, acc_z, checksum_exp) = struct.unpack(packet_format, buf)
+        (magic, id, time,
+            time_last_motion,
+            acc_x, acc_y, acc_z,
+            motion_status,
+            checksum_exp) = struct.unpack(packet_format, buf)
 
         if magic != 0xE1BA:
             print(f"Unexpected magic {magic:04X}")
@@ -57,8 +57,9 @@ class Packet():
             return None
 
         return cls(id, time,
-                flags & 0x2, time_last_knock,
-                flags & 0x1, time_last_motion, (acc_x, acc_y, acc_z))
+                    [(motion_status & (1 << i) != 0) for i in range(8)][2:],
+                    time_last_motion,
+                    (acc_x, acc_y, acc_z))
 
 class Config():
     def __init__(self, channel: int, threshold: int):
@@ -70,28 +71,39 @@ class Config():
         payload.append(sum(payload) & 0xff)
         return bytes(payload)
 
+    def __repr__(self):
+        return f"<Config:CH{self.channel}:THR{self.threshold}>"
+
 config_q = queue.Queue()
 def foot_handler(address, *args):
-    print(f"{address}: {args} {len(args)}")
     if(len(args) != 2):
         print("/foot/threshold needs exactly 2 arguments")
         return
 
-    if(not isinstance(args[0], int)):
-        print("Argument 0 should be integer")
+    if(isinstance(args[0], str)):
+        channel = int(args[0])
+
+    if(isinstance(args[0], int)):
+        channel = args[0]
+
+    if(channel < 0):
+        print(f"Unable to parse channel from {args[0]}")
         return
 
     if(not isinstance(args[1], float)):
         print("Argument 1 should be float")
         return
 
-    config_q.put(Config(args[0], (int)(args[1] * 255)).bytes())
+    config = Config(channel, (int)(args[1] * 255))
+    print("Config update: " + str(config))
+    config_q.put(config.bytes())
 
 
 
 dispatcher = Dispatcher()
 dispatcher.map("/foot/threshold", foot_handler)
 
+TRIGGER_TIME = 100 #ms
 def start_server(ip, port):
     print("Starting Server")
     server = osc_server.ThreadingOSCUDPServer(
@@ -99,7 +111,7 @@ def start_server(ip, port):
     print("Serving on {}".format(server.server_address))
     thread = threading.Thread(target=server.serve_forever)
     thread.start()
-    return thread
+    return server
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -111,7 +123,7 @@ if __name__ == '__main__':
         help="The port to send to")
     args = parser.parse_args()
 
-    server_thread = start_server(args.ip, args.listen)
+    server = start_server(args.ip, args.listen)
     client = udp_client.SimpleUDPClient(args.ip, args.send)
 
     port = "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0"
@@ -121,6 +133,8 @@ if __name__ == '__main__':
 
     deltas = collections.deque([1], maxlen=100)
     last_time = 0
+    last_motion_time = 0
+    send_nomotion=False
     config = Config(1, 5)
     try:
         while(True):
@@ -129,27 +143,29 @@ if __name__ == '__main__':
 
             packet = Packet.from_bytes(ser.read(packet_size))
 
+            now = time.time()
             if last_time != 0:
-                deltas.append(packet.time - last_time)
-            last_time = packet.time
+                deltas.append(now - last_time)
+            last_time = now
 
+            print(colored(f"{1/mean(deltas):5.2f}Hz", 'yellow') + colored(str(packet), 'red' if packet.motion_time != last_motion_time else 'white'))
+
+            message = {}
             prefix = f"/foot/{packet.id}"
-            message = {
-                "/time": packet.time,
-                "/knock": packet.knock,
-                "/knock_time": packet.knock_time,
+            if(packet.motion_time != last_motion_time):
+                last_motion_time = packet.motion_time
+                message |= {f"/motion/{motion_keys[i]}" : v for i,v in enumerate(packet.motion)}
+                send_nomotion = True
+            elif(send_nomotion and packet.time - packet.motion_time > TRIGGER_TIME):
+                send_nomotion = False
+                message |= {f"/motion/{motion_keys[i]}" : False for i in range(len(packet.motion))}
 
-                "/motion": packet.motion,
-                "/motion_time": packet.motion,
-
-            }
             for k,v in message.items():
                 client.send_message(prefix + k, v)
             msg_acc = OscMessageBuilder(prefix + "/acc")
             [msg_acc.add_arg(x) for x in packet.acc]
             client.send(msg_acc.build())
-            # if packet.motion or packet.knock:
-            print(colored(f"{1e3/mean(deltas):5.2f}Hz", 'yellow') + colored(str(packet), 'red' if packet.motion else 'green' if packet.knock else 'white'))
+
             # if packet.motion:
             #     client.send_message("/cue/3/start", 1)
             # if packet.knock:
@@ -157,4 +173,4 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print("CTRL-C hit, ending")
 
-    server_thread.stop()
+    server.shutdown()
