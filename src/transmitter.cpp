@@ -3,7 +3,11 @@
 
 #define SERIAL_DEBUG 1
 #include <packet.h>
+
+#ifndef CHANNEL
 #define CHANNEL 1
+#endif
+
 packet_t packet = {};
 conf_t config = {};
 
