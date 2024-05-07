@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 
-#define SERIAL_DEBUG 1
+#define SERIAL_DEBUG 0
 #include <packet.h>
 
 #ifndef CHANNEL
