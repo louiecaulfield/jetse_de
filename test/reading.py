@@ -20,6 +20,7 @@ packet_size = struct.calcsize(packet_format)
 
 motion_keys =  ["z_pos", "z_neg", "y_pos", "y_neg", "x_pos", "x_neg"]
 motion_keys_short =  ["Z", "z", "Y", "y", "X", "x"]
+
 class Packet():
     def __init__(self, id:int, time:int,
                  motion: list[bool], motion_time: int, acc:tuple[float, float, float]):
@@ -102,8 +103,13 @@ def foot_handler(address, *args):
 
 dispatcher = Dispatcher()
 dispatcher.map("/foot/threshold", foot_handler)
+qlab_queue_last_time = {}
 
 TRIGGER_TIME = 100 #ms
+REPEAT_TIME = 500 #ms
+QLAB_REPEAT = 200 / 1000
+colors = ['blue', 'red']
+
 def start_server(ip, port):
     print("Starting Server")
     server = osc_server.ThreadingOSCUDPServer(
@@ -123,7 +129,8 @@ if __name__ == '__main__':
         help="The port to send to")
     args = parser.parse_args()
 
-    server = start_server(args.ip, args.listen)
+    server = start_server("127.0.0.1", args.listen)
+    client_local = udp_client.SimpleUDPClient("127.0.0.1", 5005)
     client = udp_client.SimpleUDPClient(args.ip, args.send)
 
     port = "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0"
@@ -132,44 +139,61 @@ if __name__ == '__main__':
     ser.open()
 
     deltas = collections.deque([1], maxlen=100)
-    last_time = 0
-    last_motion_time = 0
-    send_nomotion=False
-    config = Config(1, 5)
+    last_times = {}
+    last_motion_times = {}
+    send_nomotion = {}
+
+    start_time = time.time()
+    qlab_last_send_time = 0
     try:
         while(True):
+            now = time.time()
             if not config_q.empty():
                 ser.write(config_q.get())
 
             packet = Packet.from_bytes(ser.read(packet_size))
 
-            now = time.time()
-            if last_time != 0:
-                deltas.append(now - last_time)
-            last_time = now
-
-            print(colored(f"{1/mean(deltas):5.2f}Hz", 'yellow') + colored(str(packet), 'red' if packet.motion_time != last_motion_time else 'white'))
+            if packet.id in last_times != 0:
+                deltas.append(packet.time - last_times[packet.id])
+            last_times[packet.id] = packet.time
 
             message = {}
             prefix = f"/foot/{packet.id}"
-            if(packet.motion_time != last_motion_time):
-                last_motion_time = packet.motion_time
+            qlab_queues = []
+            if(packet.motion_time != last_motion_times.get(packet.id, 0)):
+                color=colors[packet.id] if packet.id < len(colors) else "green"
+                # color='red'
+                last_motion_times[packet.id] = packet.motion_time
                 message |= {f"/motion/{motion_keys[i]}" : v for i,v in enumerate(packet.motion)}
-                send_nomotion = True
-            elif(send_nomotion and packet.time - packet.motion_time > TRIGGER_TIME):
-                send_nomotion = False
+                send_nomotion[packet.id] = True
+                qlab_queues += [f"{packet.id}.{motion_keys[i]}" for i, v in enumerate(packet.motion) if v]
+                for q in qlab_queues:
+                    if packet.motion_time - qlab_queue_last_time.get(q, 0) < REPEAT_TIME:
+                        print("Dropping fast repeated queue " + q)
+                        qlab_queues.remove(q)
+                    qlab_queue_last_time[q] = packet.motion_time
+                # print(qlab_queue_last_time)
+                # print(qlab_queues)
+                # if packet.motion[0]:
+                print(colored(f"{time.time() - start_time:7.3} s", 'yellow') + colored(str(packet), color) + " QLAB --> " + colored(":".join(qlab_queues),'yellow'))
+            elif(send_nomotion.get(packet.id, False) and packet.time - packet.motion_time > TRIGGER_TIME):
+                send_nomotion[packet.id] = False
                 message |= {f"/motion/{motion_keys[i]}" : False for i in range(len(packet.motion))}
 
+
             for k,v in message.items():
-                client.send_message(prefix + k, v)
+                client_local.send_message(prefix + k, v)
             msg_acc = OscMessageBuilder(prefix + "/acc")
             [msg_acc.add_arg(x) for x in packet.acc]
-            client.send(msg_acc.build())
+            client_local.send(msg_acc.build())
 
-            # if packet.motion:
-            #     client.send_message("/cue/3/start", 1)
-            # if packet.knock:
-            #     client.send_message("/cue/4/start", 1)
+            if packet.motion[1] and now - qlab_last_send_time < QLAB_REPEAT:
+                print(colored(f"Supressing fast queue repeat {now - qlab_last_send_time}", "red"))
+            elif len(qlab_queues) > 0:
+                print("Sending qlab")
+                [client.send_message(f"/cue/{q}/start", 1) for q in qlab_queues]
+                if packet.motion[1]:
+                    qlab_last_send_time = now
     except KeyboardInterrupt:
         print("CTRL-C hit, ending")
 
