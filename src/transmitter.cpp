@@ -80,10 +80,10 @@ void setup(void) {
   /* RF24 Radio */
   Serial.println("RF24 transmitter setup...");
   radio.begin();
-  radio.setPALevel(RF24_PA_LOW);
+  radio.setPALevel(RF24_PA_MAX);
   radio.enableDynamicPayloads();
   radio.enableAckPayload();
-  radio.setDataRate(RF24_2MBPS);
+  radio.setDataRate(RF24_1MBPS);
 
   radio.openWritingPipe(address_for(CHANNEL));
   radio.stopListening();

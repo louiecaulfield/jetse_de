@@ -30,10 +30,10 @@ void setup() {
     delay(10);
 
   radio.begin();
-  radio.setPALevel(RF24_PA_LOW);
+  radio.setPALevel(RF24_PA_MAX);
   radio.enableDynamicPayloads();
   radio.enableAckPayload();
-  radio.setDataRate(RF24_2MBPS);
+  radio.setDataRate(RF24_1MBPS);
 
   for(uint8_t i = 0; i < PIPES; i++) {
     radio.openReadingPipe(i, address_for(config[i].id));
