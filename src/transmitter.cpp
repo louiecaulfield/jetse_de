@@ -8,7 +8,8 @@
 #define CHANNEL 1
 #endif
 
-#define POWERSAVE false
+#define POWERSAVE true
+#define KEEPALIVE_TIMEOUT 100
 
 packet_t packet = {};
 conf_t config = {};
@@ -103,14 +104,18 @@ void update_config(conf_t* config) {
 
 uint8_t pipe = 0;
 bool transmit;
+unsigned long now;
+
 void loop() {
   transmit = !POWERSAVE;
   if(time_last_motion != packet.time_last_motion) {
     transmit = true;
     last_motion = mpu.getMotionStatus();
   }
-  if (transmit) {
+  now = millis();
+  transmit |= now - packet.time > KEEPALIVE_TIMEOUT;
 
+  if (transmit) {
     mpu.getAcceleration(&ax, &ay, &az);
     packet.x = ax;
     packet.y = ay;
