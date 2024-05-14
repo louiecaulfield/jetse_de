@@ -25,7 +25,7 @@ bool config_update[PIPES];
 packet_conf_t config_packet;
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(BAUD);
   while(!Serial)
     delay(10);
 

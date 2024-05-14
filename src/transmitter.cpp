@@ -38,10 +38,9 @@ void motion_interrupt() {
 }
 
 void setup(void) {
-  Serial.begin(115200);
-
+  Serial.begin(BAUD);
   while (!Serial)
-    delay(10); // will pause Zero, Leonardo, etc until serial console opens
+    delay(10);
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Wire.begin();
