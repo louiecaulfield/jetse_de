@@ -66,8 +66,8 @@ void setup(void) {
   mpu.setDHPFMode(MPU6050_DHPF_0P63);
   mpu.setMotionDetectionThreshold(MOT_THR_DEFAULT);
   mpu.setMotionDetectionDuration(MOT_DUR_DEFAULT);
-  mpu.setInterruptMode(MPU6050_INTMODE_ACTIVELOW);
-  mpu.setInterruptDrive(MPU6050_INTDRV_OPENDRAIN);
+  mpu.setInterruptMode(MPU6050_INTMODE_ACTIVEHIGH);
+  mpu.setInterruptDrive(MPU6050_INTDRV_PUSHPULL);
   mpu.setInterruptLatch(MPU6050_INTLATCH_50USPULSE);
   log_debug_fmt("Motion interrupt = %d", mpu.getIntEnabled());
   mpu.setIntEnabled(0);
@@ -76,7 +76,7 @@ void setup(void) {
   log_debug_fmt("Motion pin = %d", PIN_MOTION);
   pinMode(PIN_MOTION, INPUT_PULLUP);
   time_last_motion = millis();
-  attachInterrupt(PIN_MOTION, motion_interrupt, FALLING);
+  attachInterrupt(PIN_MOTION, motion_interrupt, RISING);
 
   /* RF24 Radio */
   Serial.println("RF24 transmitter setup...");
