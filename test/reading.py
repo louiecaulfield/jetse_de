@@ -127,14 +127,15 @@ if __name__ == '__main__':
         help="The port to listen on")
     parser.add_argument("--send", type=int, default=5005,
         help="The port to send to")
+    parser.add_argument("port", type=str,
+        help="The serial port")
     args = parser.parse_args()
 
     server = start_server("127.0.0.1", args.listen)
     client_local = udp_client.SimpleUDPClient("127.0.0.1", 5005)
     client = udp_client.SimpleUDPClient(args.ip, args.send)
 
-    port = "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0"
-    ser = serial.Serial(port, 115200)
+    ser = serial.Serial(args.port, 115200)
     ser.close()
     ser.open()
 
