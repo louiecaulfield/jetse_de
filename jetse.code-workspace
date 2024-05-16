@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {},
+	"inputs": [
+		{
+		  "id": "gen2_target",
+		  "type": "command",
+		  "command": "statusBarParam.get.gen2_target",
+		  "args": {
+			"shellCmd": "grep -rho 'object\\s\\s*\\S\\S*\\s\\s*extends\\s\\s*EfinityFlow' | sed 's/^object\\s*\\(\\S*\\)\\s*.*$/\\1/'",
+			"cwd": "fpga/boards",
+		  },
+		},
+	  ],
+
+}
