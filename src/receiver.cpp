@@ -4,7 +4,7 @@
 #include <nRF24L01.h>
 #include <RF24.h>
 
-RF24 radio(8, 7); // CE, CSN
+RF24 radio(10, 9); // CE, CSN
 
 #define SERIAL_DEBUG 0
 
@@ -30,7 +30,7 @@ void setup() {
     delay(10);
 
   radio.begin();
-  radio.setPALevel(RF24_PA_MAX);
+  radio.setPALevel(RF24_PA_MIN);
   radio.enableDynamicPayloads();
   radio.enableAckPayload();
   radio.setDataRate(RF24_1MBPS);
