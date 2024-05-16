@@ -8,7 +8,7 @@
 #define CHANNEL 1
 #endif
 
-#define POWERSAVE true
+#define POWERSAVE false
 #define KEEPALIVE_TIMEOUT 100
 
 packet_t packet = {};
@@ -17,7 +17,7 @@ conf_t config = {};
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
-RF24 radio(D4, D8); //CE, CSN
+RF24 radio(10, 9); //CE, CSN
 
 #include <I2Cdev.h>
 #include <MPU6050.h>
@@ -31,9 +31,9 @@ uint8_t last_motion = 0;
 #define MOT_THR_DEFAULT 20
 #define MOT_DUR_DEFAULT 10
 
-#define PIN_MOTION digitalPinToInterrupt(10)
+#define PIN_MOTION digitalPinToInterrupt(3)
 unsigned long time_last_motion;
-void ICACHE_RAM_ATTR motion_interrupt() {
+void motion_interrupt() {
   time_last_motion = millis();
 }
 
@@ -52,9 +52,9 @@ void setup(void) {
   if(!mpu.testConnection()) {
     log_debug("MPU6050 connection failed");
     bool toggle = 0;
-    pinMode(D0, OUTPUT);
+    pinMode(2, OUTPUT);
     while(true) {
-      digitalWrite(D0, toggle);
+      digitalWrite(2, toggle);
       toggle = !toggle;
       delay(500);
     }
