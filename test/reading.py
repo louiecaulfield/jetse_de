@@ -11,11 +11,15 @@ from plotter import FootPlotter
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+
     parser.add_argument("--ip", default="127.0.0.1",
         help="The ip to connect to")
-    parser.add_argument("--listen", type=int, default=5008,
+    parser.add_argument("--send", type=int, default=53000,
+        help="The port to send to")
+
+    parser.add_argument("--ctrl-listen", type=int, default=5008,
         help="The port to listen on")
-    parser.add_argument("--send", type=int, default=5005,
+    parser.add_argument("--ctrl-send", type=int, default=5005,
         help="The port to send to")
     parser.add_argument("port", type=str,
         help="The serial port")
@@ -23,8 +27,18 @@ if __name__ == '__main__':
 
     foot_interface = SerialInterface(args.port)
 
-    osc_ctrl = OscDebug("127.0.0.1", args.listen, args.send, foot_interface.config_q)
-    osc_remote = OscQlab(args.ip, 5005)
+    osc_ctrl = OscDebug("127.0.0.1", args.ctrl_listen, args.ctrl_send, foot_interface.config_q, False)
+    osc_remote = OscQlab(args.ip, args.send)
+    axes = [
+        "x_pos",
+        "x_neg",
+        "y_pos",
+        "y_neg",
+        "z_pos",
+        "z_neg",
+    ]
+    osc_remote.map_cue(1, axes, "25.1")
+    osc_remote.map_cue(2, axes, "25.1")
 
     foot_interface.start()
     osc_ctrl.start()
