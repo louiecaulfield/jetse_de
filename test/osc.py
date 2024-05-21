@@ -40,14 +40,16 @@ class OscThing():
         print("Server thread ended")
         delattr(self, "server_thread")
 
-TRIGGER_TIME = 100 #ms
+TRIGGER_TIME = 250 #ms
 class OscDebug(OscThing):
-    def __init__(self, ip, port_listen, port_send, cfg_q):
+    def __init__(self, ip, port_listen, port_send, cfg_q, accelero_data):
         super().__init__(ip, port_listen, port_send)
         self.add_handler("/foot/*/threshold", self.foot_handler)
         self.last_motion_times = {}
         self.send_nomotion = {}
         self.cfg_q = cfg_q
+        self.accelero_data = accelero_data
+        self.motion_off = {id:[] for id in range(6)}
 
     def foot_handler(self, address, *args):
         if(len(args) != 1):
@@ -74,17 +76,24 @@ class OscDebug(OscThing):
 
         if(packet.motion_time != self.last_motion_times.get(packet.id, 0)):
             self.last_motion_times[packet.id] = packet.motion_time
-            message |= {f"/motion/{Packet.motion_keys[i]}" : v for i,v in enumerate(packet.motion)}
-            self.send_nomotion[packet.id] = True
-        elif(self.send_nomotion.get(packet.id, False) and packet.sensor_time - packet.motion_time > TRIGGER_TIME):
-            self.send_nomotion[packet.id] = False
-            message |= {f"/motion/{Packet.motion_keys[i]}" : False for i in range(len(packet.motion))}
+            for i, v in enumerate(packet.motion):
+                if v:
+                    message |= {f"/motion/{Packet.motion_keys[i]}" : True}
+                    self.motion_off[packet.id].append((packet.motion_time + TRIGGER_TIME, Packet.motion_keys[i]))
+
+        for (time, key) in self.motion_off[packet.id]:
+            if packet.sensor_time > time:
+                print(f"Sending remove {key}")
+                self.motion_off[packet.id].remove((time, key))
+                message |= {f"/motion/{key}" : False}
+
         for k,v in message.items():
             self.client.send_message(prefix + k, v)
 
-        msg_acc = OscMessageBuilder(prefix + "/acc")
-        [msg_acc.add_arg(x) for x in packet.acc]
-        self.client.send(msg_acc.build())
+        if self.accelero_data:
+            msg_acc = OscMessageBuilder(prefix + "/acc")
+            [msg_acc.add_arg(x) for x in packet.acc]
+            self.client.send(msg_acc.build())
 
         if packet.cfg_update:
             self.client.send_message(prefix + "/threshold", packet.threshold)
