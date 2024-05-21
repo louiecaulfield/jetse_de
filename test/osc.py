@@ -11,7 +11,7 @@ class OscThing():
         self.dispatcher = Dispatcher()
         if(port_listen > 0):
             self.server = osc_server.ThreadingOSCUDPServer(("127.0.0.1", port_listen), self.dispatcher)
-        self.client = udp_client.SimpleUDPClient(ip, 5005)
+        self.client = udp_client.SimpleUDPClient(ip, port_send)
 
     def add_handler(self, msg: str, handler):
         self.dispatcher.map(msg, handler)
