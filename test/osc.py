@@ -99,24 +99,44 @@ class OscDebug(OscThing):
             self.client.send_message(prefix + "/threshold", packet.threshold)
 
 class OscQlab(OscThing):
-    REPEAT_TIME = 500 #ms
+    REPEAT_MAX = 0.500
 
     def __init__(self, ip, port_send):
         super().__init__(ip, 0, port_send)
         self.last_motion_times = {}
-        self.queue_last_time = {}
+        self.cue_last_time = {}
+        self.cue_map = {}
+
+    def map_cue(self, channel, axes, cue):
+        axes_nrs = []
+        for axis in axes:
+            if axis not in Packet.motion_keys:
+                print(f"Axis {axis} unknown")
+            else:
+                axes_nrs.append(Packet.motion_keys.index(axis))
+        print(f"Mapping axes {axes_nrs} to cue {cue}")
+        self.cue_last_time[cue] = 0
+        self.cue_map[channel] = (axes_nrs, cue)
 
     def handle(self, packet: Packet):
-        queues = []
         if(packet.motion_time != self.last_motion_times.get(packet.id, 0)):
             self.last_motion_times[packet.id] = packet.motion_time
-            queues += [f"{packet.id}.{Packet.motion_keys[i]}" for i, v in enumerate(packet.motion) if v]
-            for q in queues:
-                if packet.motion_time - self.queue_last_time.get(q, 0) < self.REPEAT_TIME:
-                    print("Dropping fast repeated queue " + q)
-                    queues.remove(q)
-                else:
-                    self.queue_last_time[q] = packet.motion_time
+            if packet.id not in self.cue_map:
+                return
+            (axes_nrs, cue) = self.cue_map[packet.id]
 
-        for q in queues:
-            self.client.send_message(f"/cue/{q}/start", 1)
+            send_cue = False
+            for i in axes_nrs:
+                if packet.motion[i]:
+                    self.send_que(cue)
+                    return
+
+    def send_que(self, cue):
+        # print(f"{time.time() - self.cue_last_time[cue]}")
+        if(time.time() - self.cue_last_time[cue] < self.REPEAT_MAX):
+            print(f"Supressing fast repeated {cue} (faster than {self.REPEAT_MAX} ms)")
+            return
+
+        self.cue_last_time[cue] = time.time()
+        self.client.send_message(f"/cue/{cue}/start", 1)
+        print(f"{time.time()} QLAB /cue/{cue}/start")
