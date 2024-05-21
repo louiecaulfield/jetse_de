@@ -96,6 +96,8 @@ void update_config(conf_t* config) {
   log_debug_fmt("CONF [%d] THR [%d]", config->id, config->threshold);
   if(config->id == CHANNEL) {
     mpu.setMotionDetectionThreshold(config->threshold);
+    packet.cfg_threshold = config -> threshold;
+    packet.cfg_update = true;
   } else {
     log_debug_fmt("Config received for wrong channel %d (expecting " xstr(CHANNEL) ")", config->id);
   }
@@ -135,6 +137,7 @@ void loop() {
 #endif
 
     if(radio.write(&packet, sizeof(packet))) {
+      packet.cfg_update = false;
       if (radio.available(&pipe)) {
         uint8_t size = radio.getDynamicPayloadSize();
         if(size != sizeof(config)) {

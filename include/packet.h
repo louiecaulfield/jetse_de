@@ -32,7 +32,8 @@ struct __attribute__ ((packed)) packet_t {
     int16_t z;
     union {
         uint8_t motion;
-        uint8_t _unused:2;
+        uint8_t cfg_update:1;
+        uint8_t _unused:1;
         uint8_t motion_z_pos:1;
         uint8_t motion_z_neg:1;
         uint8_t motion_y_pos:1;
@@ -40,6 +41,8 @@ struct __attribute__ ((packed)) packet_t {
         uint8_t motion_x_pos:1;
         uint8_t motion_x_neg:1;
     };
+
+    uint8_t cfg_threshold;
 };
 
 struct __attribute__ ((packed)) conf_t {
