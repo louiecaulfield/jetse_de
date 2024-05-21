@@ -21,13 +21,16 @@ if __name__ == '__main__':
         help="The port to listen on")
     parser.add_argument("--ctrl-send", type=int, default=5005,
         help="The port to send to")
+    # parser.add_argument("--accelero", action=str, default=5005,
+    #     help="The port to send to")
+
     parser.add_argument("port", type=str,
         help="The serial port")
     args = parser.parse_args()
 
     foot_interface = SerialInterface(args.port)
 
-    osc_ctrl = OscDebug("127.0.0.1", args.ctrl_listen, args.ctrl_send, foot_interface.config_q, False)
+    osc_ctrl = OscDebug("127.0.0.1", args.ctrl_listen, args.ctrl_send, foot_interface.config_q, True)
     osc_remote = OscQlab(args.ip, args.send)
     axes = [
         "x_pos",
@@ -43,20 +46,19 @@ if __name__ == '__main__':
     foot_interface.start()
     osc_ctrl.start()
     osc_remote.start()
-
-    plotter = FootPlotter()
+    # plotter = FootPlotter(3)
 
     try:
         while(True):
             packet = foot_interface.get_packet()
             osc_remote.handle(packet)
             osc_ctrl.handle(packet)
-            plotter.handle(packet)
+            # plotter.handle(packet)
 
     except KeyboardInterrupt:
         print("CTRL-C hit, ending")
 
-    plotter.stop()
+    # plotter.stop()
     foot_interface.stop()
     osc_ctrl.stop()
     osc_remote.stop()

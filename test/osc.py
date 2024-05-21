@@ -100,13 +100,15 @@ class OscDebug(OscThing):
             self.client.send_message(prefix + "/threshold", packet.threshold)
 
 class OscQlab(OscThing):
-    REPEAT_MAX = 0.500
+    REPEAT_MAX = 0.400
+    SAME_SHOE_INTERVAL = 1
 
     def __init__(self, ip, port_send):
         super().__init__(ip, 0, port_send)
         self.last_motion_times = {}
         self.cue_last_time = {}
         self.cue_map = {}
+        self.last_channel_cue = -1
 
     def map_cue(self, channel, axes, cue):
         axes_nrs = []
@@ -129,14 +131,21 @@ class OscQlab(OscThing):
             send_cue = False
             for i in axes_nrs:
                 if packet.motion[i]:
-                    self.send_que(cue)
+                    self.send_que(cue, packet.id)
                     return
 
-    def send_que(self, cue):
+    def send_que(self, cue, channel):
         # print(f"{time.time() - self.cue_last_time[cue]}")
+        if(channel == self.last_channel_cue and time.time() - self.cue_last_time[cue] < self.SAME_SHOE_INTERVAL):
+            print(f"Supressing {cue} on same channel {channel}")
+            return
+
         if(time.time() - self.cue_last_time[cue] < self.REPEAT_MAX):
             print(f"Supressing fast repeated {cue} (faster than {self.REPEAT_MAX} ms)")
             return
+
+
+        self.last_channel_cue = channel
 
         self.cue_last_time[cue] = time.time()
         self.client.send_message(f"/cue/{cue}/start", 1)

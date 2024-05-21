@@ -5,7 +5,7 @@
 #include <packet.h>
 
 #ifndef CHANNEL
-#define CHANNEL 1
+#define CHANNEL 2
 #endif
 
 #define POWERSAVE true
