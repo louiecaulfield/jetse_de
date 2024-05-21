@@ -75,7 +75,7 @@ bool receive_config() {
   Serial.readBytes((uint8_t *)&config_packet, sizeof(config_packet));
   if(config_packet.magic != 0xBAE1) {
     log_debug("Invalid magic");
-    while(Serial.read()) {}
+    while(Serial.read() > 0) {}
     return false;
   }
 
@@ -84,7 +84,7 @@ bool receive_config() {
     checksum += ((uint8_t*)&config_packet)[i];
   if (checksum != config_packet.checksum) {
     log_debug("Invalid checksum");
-    while(Serial.read()) {}
+    while(Serial.read() > 0) {}
     return false;
   }
 
@@ -140,7 +140,7 @@ void loop() {
 #endif
     send_config(pipe);
   }
-#ifndef SERIAL_DEBUG
+#if(!SERIAL_DEBUG)
   receive_config();
 #endif
 }
