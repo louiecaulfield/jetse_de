@@ -5,3 +5,5 @@
 .vscode/ipch
 .~lock*
 .venv
+test/__pycache__/osc.cpython-312.pyc
+test/__pycache__/packet.cpython-312.pyc
