@@ -8,7 +8,7 @@
 #define CHANNEL 1
 #endif
 
-#define POWERSAVE false
+#define POWERSAVE true
 #define KEEPALIVE_TIMEOUT 100
 
 packet_t packet = {};
@@ -80,6 +80,7 @@ void setup(void) {
   /* RF24 Radio */
   Serial.println("RF24 transmitter setup...");
   radio.begin();
+  radio.setRetries(3, 0);
   radio.setPALevel(RF24_PA_MAX);
   radio.enableDynamicPayloads();
   radio.enableAckPayload();
