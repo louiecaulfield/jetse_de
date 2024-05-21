@@ -4,6 +4,7 @@ import pythonosc.osc_server as osc_server
 import threading
 from pythonosc.dispatcher import Dispatcher
 from packet import Packet, Config
+from parse import parse
 
 class OscThing():
     def __init__(self, ip, port_listen, port_send):
@@ -43,31 +44,27 @@ TRIGGER_TIME = 100 #ms
 class OscDebug(OscThing):
     def __init__(self, ip, port_listen, port_send, cfg_q):
         super().__init__(ip, port_listen, port_send)
-        self.add_handler("/foot/threshold", self.foot_handler)
+        self.add_handler("/foot/*/threshold", self.foot_handler)
         self.last_motion_times = {}
         self.send_nomotion = {}
         self.cfg_q = cfg_q
 
     def foot_handler(self, address, *args):
-        if(len(args) != 2):
-            print(f"/foot/threshold needs exactly 2 arguments")
+        if(len(args) != 1):
+            print(f"/foot/threshold needs exactly 1 argument")
             return
 
-        if(isinstance(args[0], str)):
-            channel = int(args[0])
-
-        if(isinstance(args[0], int)):
-            channel = args[0]
+        channel = parse("/foot/{:d}/threshold", address)[0]
 
         if(channel < 0):
             print(f"Unable to parse channel from {args[0]}")
             return
 
-        if(not isinstance(args[1], float)):
-            print("Argument 1 should be float")
+        if(not isinstance(args[0], int)):
+            print("Argument 1 should be int")
             return
 
-        config = Config(channel, (int)(args[1] * 255))
+        config = Config(channel, args[0])
         print("Config update: " + str(config))
         self.cfg_q.put(config)
 
@@ -88,6 +85,9 @@ class OscDebug(OscThing):
         msg_acc = OscMessageBuilder(prefix + "/acc")
         [msg_acc.add_arg(x) for x in packet.acc]
         self.client.send(msg_acc.build())
+
+        if packet.cfg_update:
+            self.client.send_message(prefix + "/threshold", packet.threshold)
 
 class OscQlab(OscThing):
     REPEAT_TIME = 500 #ms

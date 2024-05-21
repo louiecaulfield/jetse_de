@@ -8,22 +8,25 @@ import threading
 class Packet():
     motion_keys =  ["z_pos", "z_neg", "y_pos", "y_neg", "x_pos", "x_neg"]
     motion_keys_short =  ["Z", "z", "Y", "y", "X", "x"]
-    format = '<HBLLhhhBB'
+    format = '<HBLLhhhBBBB'
     size = struct.calcsize(format)
 
     def __init__(self, id:int, sensor_time:int,
+                 cfg_update: bool, threshold: int,
                  motion: list[bool], motion_time: int, acc:tuple[float, float, float]):
         self.host_time = time.time()
         self.id = id
+        self.cfg_update = cfg_update
+        self.threshold = threshold
         self.sensor_time = sensor_time
         self.motion = motion
         self.motion_time = motion_time
         self.acc = acc
 
     def __repr__(self) -> str:
-        motion_str = "".join([motion_keys_short[i] if v else " " for i, v in enumerate(self.motion)])
+        motion_str = "".join([self.motion_keys_short[i] if v else " " for i, v in enumerate(self.motion)])
 
-        str = f"[{self.id} - {self.sensor_time:10d} ms"
+        str = f"[{self.id} - {self.sensor_time:10d} ms - {self.threshold:05d} "
         # if self.motion:
         str += f" - MOTION @{self.motion_time:10d}ms" + \
                     "<" + ",".join([f"{v:7d}" for v in self.acc]) + f"> {motion_str}"
@@ -38,6 +41,7 @@ class Packet():
             time_last_motion,
             acc_x, acc_y, acc_z,
             motion_status,
+            cfg_update, cfg_threshold,
             checksum_exp) = struct.unpack(Packet.format, buf)
 
         if magic != 0xE1BA:
@@ -50,6 +54,7 @@ class Packet():
             return None
 
         return cls(id, sensor_time,
+                   cfg_update, cfg_threshold,
                     [(motion_status & (1 << i) != 0) for i in range(8)][2:],
                     time_last_motion,
                     (acc_x, acc_y, acc_z))
@@ -81,11 +86,13 @@ class SerialInterface(threading.Thread):
         tries = 0
         magic = 0x00
         packet = None
-        while packet is None:
+        while packet is None and tries < 10:
             while magic != 0xBAE1:
                 magic = ((magic << 8) | self.port.read(1)[0]) & 0xFFFF
             packet = Packet.from_bytes(bytes([0xBA, 0xE1]) + self.port.read(Packet.size - 2))
             tries += 1
+        if packet is None:
+            raise Exception(f"Failed to sync to serial port after {tries} tries")
         print(f"Sync done after {tries} attempt(s)")
 
     def run(self):

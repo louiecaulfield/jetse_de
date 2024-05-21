@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 
-#define SERIAL_DEBUG 0
+#define SERIAL_DEBUG 1
 #include <packet.h>
 
 #ifndef CHANNEL
@@ -12,7 +12,8 @@
 #define KEEPALIVE_TIMEOUT 100
 
 packet_t packet = {};
-conf_t config = {};
+conf_t config = { .id = CHANNEL, .threshold = 20 };
+void update_config(conf_t* config);
 
 #include <SPI.h>
 #include <nRF24L01.h>
@@ -28,7 +29,6 @@ RF24 radio(10, 9); //CE, CSN
 MPU6050 mpu;
 int16_t ax, ay, az;
 uint8_t last_motion = 0;
-#define MOT_THR_DEFAULT 20
 #define MOT_DUR_DEFAULT 10
 
 #define PIN_MOTION digitalPinToInterrupt(3)
@@ -63,7 +63,7 @@ void setup(void) {
   // mpu.setRate(??);
   mpu.setDLPFMode(MPU6050_DLPF_BW_188);
   mpu.setDHPFMode(MPU6050_DHPF_0P63);
-  mpu.setMotionDetectionThreshold(MOT_THR_DEFAULT);
+  update_config(&config);
   mpu.setMotionDetectionDuration(MOT_DUR_DEFAULT);
   mpu.setInterruptMode(MPU6050_INTMODE_ACTIVEHIGH);
   mpu.setInterruptDrive(MPU6050_INTDRV_PUSHPULL);
@@ -96,8 +96,8 @@ void update_config(conf_t* config) {
   log_debug_fmt("CONF [%d] THR [%d]", config->id, config->threshold);
   if(config->id == CHANNEL) {
     mpu.setMotionDetectionThreshold(config->threshold);
-    packet.cfg_threshold = config -> threshold;
-    packet.cfg_update = true;
+    packet.cfg_threshold = config->threshold;
+    packet.cfg_threshold_update = true;
   } else {
     log_debug_fmt("Config received for wrong channel %d (expecting " xstr(CHANNEL) ")", config->id);
   }
@@ -137,7 +137,7 @@ void loop() {
 #endif
 
     if(radio.write(&packet, sizeof(packet))) {
-      packet.cfg_update = false;
+      packet.cfg_update = 0;
       if (radio.available(&pipe)) {
         uint8_t size = radio.getDynamicPayloadSize();
         if(size != sizeof(config)) {
