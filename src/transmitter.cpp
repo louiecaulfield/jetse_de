@@ -94,11 +94,14 @@ void setup(void) {
 }
 
 void update_config(conf_t* config) {
-  log_debug_fmt("CONF [%d] THR [%d]", config->id, config->threshold);
+  log_debug_fmt("CONF [%d] THR [%d] DUR [%d]", config->id, config->threshold, config->duration);
   if(config->id == CHANNEL) {
+    mpu.setMotionDetectionDuration(config->duration);
     mpu.setMotionDetectionThreshold(config->threshold);
     packet.cfg_threshold = config->threshold;
+    packet.cfg_duration = config ->duration;
     packet.cfg_threshold_update = true;
+    packet.cfg_duration_update = true;
   } else {
     log_debug_fmt("Config received for wrong channel %d (expecting " xstr(CHANNEL) ")", config->id);
   }

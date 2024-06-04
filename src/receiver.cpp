@@ -13,12 +13,12 @@ packet_t packet = {};
 
 #define PIPES 6
 conf_t config[PIPES] = {
-  {.id=0, .threshold=50},
-  {.id=1, .threshold=50},
-  {.id=2, .threshold=50},
-  {.id=3, .threshold=50},
-  {.id=9, .threshold=50},
-  {.id=5, .threshold=50},
+  {.id=0, .threshold=50, .duration=10},
+  {.id=1, .threshold=50, .duration=10},
+  {.id=2, .threshold=50, .duration=10},
+  {.id=3, .threshold=50, .duration=10},
+  {.id=9, .threshold=50, .duration=10},
+  {.id=5, .threshold=50, .duration=10},
 };
 
 bool config_update[PIPES];
@@ -94,11 +94,13 @@ bool receive_config() {
     return false;
   }
 
-  log_debug_fmt("Updating channel %d threshold to %d (pipe %d)",
+  log_debug_fmt("Updating channel %d threshold -> %d, duration -> %d (pipe %d)",
                 config_packet.payload.id,
                 config_packet.payload.threshold,
+                config_packet.payload.duration,
                 pipe);
   config[pipe].threshold = config_packet.payload.threshold;
+  config[pipe].duration  = config_packet.payload.duration;
   config_update[pipe] = true;
   return true;
 }
@@ -114,8 +116,8 @@ void send_config(int pipe) {
     log_debug("Flushing TX FIFO");
     radio.flush_tx();
   }
-  log_debug_fmt("Writing ACK payload on pipe %d: [Ch %d].threshold=%d",
-                  pipe, config[pipe].id, config[pipe].threshold);
+  log_debug_fmt("Writing ACK payload on pipe %d: [Ch %d] threshold=%d duration=%d",
+                  pipe, config[pipe].id, config[pipe].threshold, config[pipe].duration);
   config_update[pipe] = !radio.writeAckPayload(pipe, &config[pipe], sizeof(config[0]));
 }
 

@@ -43,13 +43,16 @@ struct __attribute__ ((packed)) packet_t {
     union {
         uint8_t cfg_update;
         uint8_t cfg_threshold_update:1;
+        uint8_t cfg_duration_update:1;
     };
     uint8_t cfg_threshold;
+    uint8_t cfg_duration;
 };
 
 struct __attribute__ ((packed)) conf_t {
     uint8_t id;
     uint8_t threshold;
+    uint8_t duration;
 };
 
 struct __attribute__ ((packed)) packet_conf_t {
