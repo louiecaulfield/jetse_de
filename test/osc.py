@@ -100,8 +100,8 @@ class OscDebug(OscThing):
             self.client.send_message(prefix + "/threshold", packet.threshold)
 
 class OscQlab(OscThing):
-    REPEAT_MAX = 0.400
-    SAME_SHOE_INTERVAL = 1
+    SAME_SHOE_INTERVAL = .750
+    REPEAT_MAX = SAME_SHOE_INTERVAL / 2
 
     def __init__(self, ip, port_send):
         super().__init__(ip, 0, port_send)
@@ -131,10 +131,11 @@ class OscQlab(OscThing):
             send_cue = False
             for i in axes_nrs:
                 if packet.motion[i]:
-                    self.send_que(cue, packet.id)
+                    self.send_que(cue, packet)
                     return
 
-    def send_que(self, cue, channel):
+    def send_que(self, cue, packet):
+        channel = packet.id
         # print(f"{time.time() - self.cue_last_time[cue]}")
         if(channel == self.last_channel_cue and time.time() - self.cue_last_time[cue] < self.SAME_SHOE_INTERVAL):
             print(f"Supressing {cue} on same channel {channel}")

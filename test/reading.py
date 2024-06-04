@@ -7,7 +7,6 @@ import time
 
 from packet import SerialInterface, Config
 from osc import OscThing, OscDebug, OscQlab
-from plotter import FootPlotter
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -19,7 +18,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--ctrl-listen", type=int, default=5008,
         help="The port to listen on")
-    parser.add_argument("--ctrl-send", type=int, default=5005,
+    parser.add_argument("--ctrl-send", type=int, default=5300,
         help="The port to send to")
     # parser.add_argument("--accelero", action=str, default=5005,
     #     help="The port to send to")
@@ -33,15 +32,15 @@ if __name__ == '__main__':
     osc_ctrl = OscDebug("127.0.0.1", args.ctrl_listen, args.ctrl_send, foot_interface.config_q, True)
     osc_remote = OscQlab(args.ip, args.send)
     axes = [
-        "x_pos",
-        "x_neg",
-        "y_pos",
-        "y_neg",
+        # "x_pos",
+        # "x_neg",
+        # "y_pos",
+        # "y_neg",
         "z_pos",
-        "z_neg",
+        # "z_neg",
     ]
-    osc_remote.map_cue(1, axes, "25.1")
-    osc_remote.map_cue(2, axes, "25.1")
+    osc_remote.map_cue(1, axes, "CA12")
+    osc_remote.map_cue(2, axes, "CA12")
 
     foot_interface.start()
     osc_ctrl.start()
