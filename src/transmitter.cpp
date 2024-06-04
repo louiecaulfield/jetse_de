@@ -12,7 +12,7 @@
 #define KEEPALIVE_TIMEOUT 100
 
 packet_t packet = {};
-conf_t config = { .id = CHANNEL, .threshold = 20 };
+conf_t config = { .id = CHANNEL, .threshold = 20, .duration = 10 };
 void update_config(conf_t* config);
 
 #include <SPI.h>
@@ -29,7 +29,6 @@ RF24 radio(10, 9); //CE, CSN
 MPU6050 mpu;
 int16_t ax, ay, az;
 uint8_t last_motion = 0;
-#define MOT_DUR_DEFAULT 10
 
 #define PIN_MOTION digitalPinToInterrupt(3)
 unsigned long time_last_motion;
@@ -64,7 +63,6 @@ void setup(void) {
   mpu.setDLPFMode(MPU6050_DLPF_BW_188);
   mpu.setDHPFMode(MPU6050_DHPF_0P63);
   update_config(&config);
-  mpu.setMotionDetectionDuration(MOT_DUR_DEFAULT);
   mpu.setInterruptMode(MPU6050_INTMODE_ACTIVEHIGH);
   mpu.setInterruptDrive(MPU6050_INTDRV_PUSHPULL);
   mpu.setInterruptLatch(MPU6050_INTLATCH_50USPULSE);
