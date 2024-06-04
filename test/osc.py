@@ -46,19 +46,24 @@ class OscDebug(OscThing):
     def __init__(self, ip, port_listen, port_send, cfg_q, accelero_data):
         super().__init__(ip, port_listen, port_send)
         self.add_handler("/foot/*/threshold", self.foot_handler)
+        self.add_handler("/foot/*/duration", self.foot_handler)
         self.last_motion_times = {}
         self.send_nomotion = {}
         self.cfg_q = cfg_q
         self.accelero_data = accelero_data
         self.motion_off = {id:[] for id in range(6)}
+        self.configs = {id:None for id in range(6)}
 
     def foot_handler(self, address, *args):
         if(len(args) != 1):
-            print(f"/foot/threshold needs exactly 1 argument")
+            print(f"/foot/threshold,duration needs exactly 1 argument")
             return
 
-        channel = parse("/foot/{:d}/threshold", address)[0]
-
+        param = address.split("/")[-1]
+        print(f"Param = {param}")
+        channel = parse("/foot/{:d}/" + param, address)[0]
+        print(f"channel = {channel}"
+              )
         if(channel < 0):
             print(f"Unable to parse channel from {args[0]}")
             return
@@ -66,8 +71,10 @@ class OscDebug(OscThing):
         if(not isinstance(args[0], int)):
             print("Argument 1 should be int")
             return
+        value = args[0]
 
-        config = Config(channel, args[0], 10)
+        config = self.configs[channel]
+        setattr(config, param, value & 0xff)
         print("Config update: " + str(config))
         self.cfg_q.put(config)
 
@@ -84,7 +91,6 @@ class OscDebug(OscThing):
 
         for (time, key) in self.motion_off[packet.id]:
             if packet.sensor_time > time:
-                print(f"Sending remove {key}")
                 self.motion_off[packet.id].remove((time, key))
                 message |= {f"/motion/{key}" : False}
 
@@ -96,12 +102,17 @@ class OscDebug(OscThing):
             [msg_acc.add_arg(x) for x in packet.acc]
             self.client.send(msg_acc.build())
 
+        if self.configs[packet.id] is None or packet.cfg_update:
+            self.configs[packet.id] = Config(packet.id, packet.threshold, packet.duration)
+            print(f"Updating config from transmitter {self.configs[packet.id]}")
+
         if packet.cfg_update:
             self.client.send_message(prefix + "/threshold", packet.threshold)
+            self.client.send_message(prefix + "/duration", packet.duration)
 
 class OscQlab(OscThing):
     SAME_SHOE_INTERVAL = .750
-    REPEAT_MAX = SAME_SHOE_INTERVAL / 2
+    REPEAT_MAX = SAME_SHOE_INTERVAL / 3
 
     def __init__(self, ip, port_send):
         super().__init__(ip, 0, port_send)
