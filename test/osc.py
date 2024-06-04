@@ -67,7 +67,7 @@ class OscDebug(OscThing):
             print("Argument 1 should be int")
             return
 
-        config = Config(channel, args[0])
+        config = Config(channel, args[0], 10)
         print("Config update: " + str(config))
         self.cfg_q.put(config)
 
