@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <PinChangeInterrupt.h>
 
 #define SERIAL_DEBUG 0
 #include <packet.h>
@@ -30,13 +31,22 @@ MPU6050 mpu;
 int16_t ax, ay, az;
 uint8_t last_motion = 0;
 
-#define PIN_MOTION digitalPinToInterrupt(3)
+#define PIN_MOTION A0
 unsigned long time_last_motion;
 void motion_interrupt() {
   time_last_motion = millis();
 }
 
 void setup(void) {
+  // A0 = INT = handled later in interrupt code
+  pinMode(A1, INPUT); // AD0
+  pinMode(A2, INPUT); // XCL
+  pinMode(A3, INPUT); // XDA
+  // A4 = SDA
+  // A5 = SCL
+  pinMode(A6, INPUT); // GND
+  pinMode(A7, INPUT); // VCC = 3.3V
+
   Serial.begin(BAUD);
   while (!Serial)
     delay(10);
@@ -50,11 +60,11 @@ void setup(void) {
   if(!mpu.testConnection()) {
     log_debug("MPU6050 connection failed");
     bool toggle = 0;
-    pinMode(2, OUTPUT);
+    pinMode(13, OUTPUT);
     while(true) {
-      digitalWrite(2, toggle);
+      digitalWrite(13, toggle);
       toggle = !toggle;
-      delay(500);
+      delay(250);
     }
   }
 
@@ -70,10 +80,10 @@ void setup(void) {
   mpu.setIntEnabled(0);
   mpu.setIntMotionEnabled(true);
 
-  log_debug_fmt("Motion pin = %d", PIN_MOTION);
+  log_debug_fmt("Motion pin = %d / %d", PIN_MOTION, digitalPinToPCINT(PIN_MOTION));
   pinMode(PIN_MOTION, INPUT_PULLUP);
   time_last_motion = millis();
-  attachInterrupt(PIN_MOTION, motion_interrupt, RISING);
+  attachPinChangeInterrupt(digitalPinToPCINT(PIN_MOTION), motion_interrupt, RISING);
 
   /* RF24 Radio */
   Serial.println("RF24 transmitter setup...");
