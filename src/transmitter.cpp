@@ -1,12 +1,10 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <PinChangeInterrupt.h>
-
-#define SERIAL_DEBUG 0
 #include <packet.h>
 
 #ifndef CHANNEL
-#define CHANNEL 2
+#define CHANNEL 9
 #endif
 
 #define POWERSAVE true
@@ -58,7 +56,7 @@ void setup(void) {
 #endif
   mpu.initialize();
   if(!mpu.testConnection()) {
-    log_debug("MPU6050 connection failed");
+    log_info("MPU6050 connection failed - not starting");
     bool toggle = 0;
     pinMode(13, OUTPUT);
     while(true) {
@@ -67,6 +65,7 @@ void setup(void) {
       delay(250);
     }
   }
+  log_info("Accelerometer connection OK");
 
   /* MPU */
   // mpu.setRate(??);
@@ -86,7 +85,7 @@ void setup(void) {
   attachPinChangeInterrupt(digitalPinToPCINT(PIN_MOTION), motion_interrupt, RISING);
 
   /* RF24 Radio */
-  Serial.println("RF24 transmitter setup...");
+  log_info("Setting up radio");
   radio.begin();
   radio.setRetries(3, 0);
   radio.setPALevel(RF24_PA_MAX);
@@ -96,9 +95,10 @@ void setup(void) {
 
   radio.openWritingPipe(address_for(CHANNEL));
   radio.stopListening();
-  radio.printDetails();
+  log_info("Radio setup done");
 
   packet.id = CHANNEL;
+  log_info_fmt("Accelero tracker initialized on channel %d", CHANNEL);
 }
 
 void update_config(conf_t* config) {
@@ -138,7 +138,6 @@ void loop() {
     packet.time_last_motion = time_last_motion;
     packet.time = millis();
 
-#if SERIAL_DEBUG
     log_debug_fmt("[%d] [ACC] %7d / %7d / %7d (%02X @ %lu ms) [%d] [%02X]",
       packet.id,
       packet.x, packet.y, packet.z,
@@ -146,7 +145,6 @@ void loop() {
       packet.time_last_motion,
       sizeof(packet),
       last_motion);
-#endif
 
     if(radio.write(&packet, sizeof(packet))) {
       packet.cfg_update = 0;
