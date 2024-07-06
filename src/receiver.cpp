@@ -4,24 +4,23 @@
 #include <nRF24L01.h>
 #include <RF24.h>
 
-RF24 radio(10, 9); // CE, CSN
-
-#define SERIAL_DEBUG 0
-
 #include <packet.h>
-packet_t packet = {};
 
-#define PIPES 6
-conf_t config[PIPES] = {
-  {.id=0, .threshold=50, .duration=10},
-  {.id=1, .threshold=50, .duration=10},
-  {.id=2, .threshold=50, .duration=10},
-  {.id=3, .threshold=50, .duration=10},
-  {.id=9, .threshold=50, .duration=10},
-  {.id=5, .threshold=50, .duration=10},
+RF24 radios[] = {
+  RF24(4, 5),
+  RF24(6, 7),
+  RF24(8, 9),
 };
 
-bool config_update[PIPES];
+packet_t packet = {};
+
+#define N_RADIOS (sizeof(radios)/sizeof(radios[0]))
+#define PIPES_PER_RADIO 6
+
+#define CHANNELS (N_RADIOS * PIPES_PER_RADIO)
+conf_t config[CHANNELS];
+
+bool config_update[CHANNELS];
 packet_conf_t config_packet;
 
 void setup() {
@@ -29,18 +28,25 @@ void setup() {
   while(!Serial)
     delay(10);
 
-  radio.begin();
-  radio.setPALevel(RF24_PA_MIN);
-  radio.enableDynamicPayloads();
-  radio.enableAckPayload();
-  radio.setDataRate(RF24_1MBPS);
+  for(uint8_t i=0; i < N_RADIOS; i++) {
+    radios[i].begin();
+    radios[i].setPALevel(RF24_PA_MIN);
+    radios[i].enableDynamicPayloads();
+    radios[i].enableAckPayload();
+    radios[i].setDataRate(RF24_1MBPS);
 
-  for(uint8_t i = 0; i < PIPES; i++) {
-    radio.openReadingPipe(i, address_for(config[i].id));
-    config_update[i] = false;
+    for(uint8_t j = 0; j < PIPES_PER_RADIO; j++) {
+      uint8_t pipe = i * PIPES_PER_RADIO + j;
+      uint8_t channel_id = pipe + 1;
+      config[pipe] = {.id=channel_id, .threshold=50, .duration=10};
+      log_debug_fmt("Pipe %d with channel id %d default config set to threshold = %d - duration = %d",
+                     pipe, config[pipe].id, config[pipe].threshold, config[pipe].duration);
+      radios[i].openReadingPipe(j, address_for(config[pipe].id));
+      config_update[pipe] = false;
+    }
+
+    radios[i].startListening();
   }
-
-  radio.startListening();
 }
 
 void serial_transmit(uint8_t * buf, int len) {
@@ -61,7 +67,7 @@ void serial_transmit(uint8_t * buf, int len) {
 }
 
 int find_pipe_for_channel(uint8_t channel) {
-  for(uint8_t i = 0; i < PIPES; i++) {
+  for(uint8_t i = 0; i < CHANNELS; i++) {
     if(config[i].id == channel)
       return i;
   }
@@ -105,12 +111,14 @@ bool receive_config() {
   return true;
 }
 
-void send_config(int pipe) {
-  if(pipe < 0 || pipe >= PIPES)
+void send_config(uint8_t pipe) {
+  if(pipe < 0 || pipe >= CHANNELS)
     return;
 
   if(!config_update[pipe])
     return;
+
+  RF24 radio = radios[pipe / PIPES_PER_RADIO];
 
   if(radio.isFifo(true) == 2) { /* Fifo full */
     log_debug("Flushing TX FIFO");
@@ -123,26 +131,28 @@ void send_config(int pipe) {
 
 int pipe = -1;
 void loop() {
-  if (radio.available()) {
-    radio.read(&packet, sizeof(packet));
-    pipe = find_pipe_for_channel(packet.id);
-    log_debug_fmt("[%lu] [%d] [ACC] %5d / %5d / %5d (%02X@%lu ms) [%d]",
-      packet.time,
-      packet.id,
-      packet.x, packet.y, packet.z,
-      packet.motion,
-      packet.time_last_motion,
-      sizeof(packet));
+  for(RF24 radio: radios) {
+    if (radio.available()) {
+      radio.read(&packet, sizeof(packet));
+      pipe = find_pipe_for_channel(packet.id);
+      log_debug_fmt("[%lu] [%d] [ACC] %5d / %5d / %5d (%02X@%lu ms) [%d]",
+        packet.time,
+        packet.id,
+        packet.x, packet.y, packet.z,
+        packet.motion,
+        packet.time_last_motion,
+        sizeof(packet));
 
-    if(pipe < 0 || pipe >= PIPES) {
-      log_debug_fmt("Invalid channel id %d for pipe with address ???", packet.id);
+      if(pipe < 0 || pipe >= CHANNELS) {
+        log_debug_fmt("Invalid channel id %d for pipe with address ???", packet.id);
+      }
+  #ifndef SERIAL_DEBUG
+      serial_transmit((uint8_t *)&packet, sizeof(packet));
+  #endif
+      send_config(pipe);
     }
-#if(!SERIAL_DEBUG)
-    serial_transmit((uint8_t *)&packet, sizeof(packet));
-#endif
-    send_config(pipe);
   }
-#if(!SERIAL_DEBUG)
+#ifndef SERIAL_DEBUG
   receive_config();
 #endif
 }
