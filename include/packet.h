@@ -3,14 +3,18 @@
 
 #include <Arduino.h>
 
-#if SERIAL_DEBUG
+
+#define log(level, msg) Serial.print(level);Serial.println(msg)
 char debug_msg[100] = "";
-#define log_debug(x) Serial.println(x)
+#if SERIAL_DEBUG
+#define log_debug(x) log("[DBG]", x)
 #define log_debug_fmt(args...) sprintf(debug_msg, args); log_debug(debug_msg)
 #else
 #define log_debug(x)
 #define log_debug_fmt(args...)
 #endif
+#define log_info(x)  log("[INF]",x)
+#define log_info_fmt(args...) sprintf(debug_msg, args); log_info(debug_msg)
 
 #define xstr(s) str(s)
 #define str(s) #s
