@@ -55,18 +55,15 @@ class MainWindow(QMainWindow):
             sensor_filter = SensorFilter(channel, self.config)
             plot = FootPlot(channel, self.config)
             sensor_filter.accelero.connect(plot.accelero_handler)
-            sensor_filter.derivative.connect(plot.deriv_handler)
-            sensor_filter.lowpass.connect(plot.filtered_handler)
 
             self.config_widget.config_changed.connect(sensor_filter.update_config)
 
-            plot.trigger_changed.connect(sensor_filter.update_trigger)
-            plot.trigger_changed.connect(self.config_widget.update_trigger)
+            # plot.trigger_changed.connect(sensor_filter.update_trigger)
+            # plot.trigger_changed.connect(self.config_widget.update_trigger)
 
             self.filters[channel] = sensor_filter
             self.plots[channel] = plot
 
-            sensor_filter.setInterval(int(1e3/self.config.graph_rate_hz)*2)
             self.destroyed.connect(sensor_filter.stop)
             sensor_filter.start()
 

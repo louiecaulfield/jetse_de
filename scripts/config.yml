@@ -1,0 +1,11 @@
+!!python/object:config.Config
+autostart: false
+channels:
+- 1
+- 2
+cues:
+  1: '21'
+  2: '30'
+osc_ip: 10.10.10.2
+osc_port: 5302
+serial_port: ''

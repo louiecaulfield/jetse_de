@@ -94,7 +94,7 @@ class ConfigForm(QWidget):
         self.btn_connect_osc.clicked.connect(self.osc_connect_clicked)
         form_with_button.addWidget(self.btn_connect_osc)
 
-
+        # Cues
         cues = QTableWidget(len(self.config.channels), 5)
         cues.setHorizontalHeaderLabels(["Ch", "Q", "x", "y", "z"])
         for i, ch in enumerate(self.config.channels):
@@ -121,66 +121,6 @@ class ConfigForm(QWidget):
         box.setLayout(form_with_button)
 
         layout.addWidget(box)
-
-        # Filter config
-        box = QGroupBox("Accelerometer filter")
-        form = QFormLayout()
-
-        #Filter type
-        tag, name = ("filter_btype", "Filter type")
-        item = QComboBox()
-        items = {"Band pass" : 'bandpass',
-                 "Low pass"  : 'lowpass',
-                 "High pass" : 'highpass',
-                 "Band stop" : 'bandstop'}
-        [item.addItem(k, v) for (k,v) in items.items()]
-        item.setCurrentIndex(item.findData(getattr(self.config, tag)))
-        item.setObjectName(tag)
-        item.currentTextChanged.connect(self.update_config)
-        form.addRow(self.tr(name), item)
-
-        #Filter order
-        tag, name = ("filter_order", "Filter order")
-        item = QSpinBox()
-        item.setMinimum(1)
-        item.setMaximum(10)
-        item.setValue(getattr(self.config, tag))
-        item.setObjectName(tag)
-        item.valueChanged.connect(self.update_config)
-        form.addRow(self.tr(name), item)
-
-        # Filter Freq 1
-        tag, name = ("filter_f1", "Filter F1")
-        item = QDoubleSpinBox()
-        item.setMinimum(0)
-        item.setMaximum(getattr(self.config, "filter_f2"))
-        item.setValue(getattr(self.config, tag))
-        item.setObjectName(tag)
-        item.valueChanged.connect(self.update_config)
-        form.addRow(self.tr(name), item)
-        self.filter_f1 = item
-
-        # Filter Freq 2
-        tag, name = ("filter_f2", "Filter F2")
-        item = QDoubleSpinBox()
-        item.setMinimum(getattr(self.config, "filter_f1"))
-        item.setMaximum(getattr(self.config, "filter_fs") / 2)
-        item.setValue(getattr(self.config, tag))
-        item.setObjectName(tag)
-        item.valueChanged.connect(self.update_config)
-        form.addRow(self.tr(name), item)
-        self.filter_f2 = item
-
-        # Filter Freq Sample
-        tag, name = ("filter_fs", "Filter F_sample")
-        item = QDoubleSpinBox()
-        item.setMinimum(0)
-        item.setMaximum(1000)
-        item.setValue(getattr(self.config, tag))
-        item.setEnabled(False)
-        item.setObjectName(tag)
-        item.valueChanged.connect(self.update_config)
-        form.addRow(self.tr(name), item)
 
         box.setLayout(form)
         layout.addWidget(box)
@@ -224,10 +164,6 @@ class ConfigForm(QWidget):
             raise AttributeError(f"No config handler for {tag} / {item}")
 
         match tag:
-            case "filter_f1":
-                self.filter_f2.setMinimum(self.filter_f1.value() + 1)
-            case "filter_f2":
-                self.filter_f1.setMaximum(self.filter_f2.value() - 1)
             case "serial_port":
                 self.btn_connect_serial.setEnabled(item.currentData() is not None)
 
@@ -236,7 +172,6 @@ class ConfigForm(QWidget):
 
     def update_trigger(self, channel: int, axis: int, direction: int, level: float, enabled: bool):
         self.config.levels[channel][axis * 2 + direction] = level if enabled else inf if direction == 0 else -inf
-
 
     def save_clicked(self):
         print(self.config.dump())
@@ -283,22 +218,10 @@ class Config(yaml.YAMLObject):
         self.channels = [1,2]
         self.serial_port = ""
         self.autostart = False
-        self.graph_rate_hz = 50
-
-        self.filter_btype = "bandpass"
-        self.filter_fs = 200
-        self.filter_order = 2
-        self.filter_f1 = 3
-        self.filter_f2 = 60
 
         self.cues={
             1:"20",
             2:"30",
-        }
-
-        self.levels = {
-            1: [inf, -inf] * 3,
-            2: [inf, -inf] * 3,
         }
 
     def dump(self):
