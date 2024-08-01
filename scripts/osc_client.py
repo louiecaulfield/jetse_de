@@ -27,7 +27,7 @@ class OscClient(QRunnable):
 
             while(self.running):
                 try:
-                    cue_name = self.cues.get(True, 2)
+                    cue_name = self.cues.get(True, .5)
                     self.client.send_message(cue_name, 1)
                     # print(f"Sent cue {cue_name} to {self.ip}:{self.port}")
                 except queue.Empty:
@@ -38,7 +38,10 @@ class OscClient(QRunnable):
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         finally:
-            self.signals.finished.emit()
+            try:
+                self.signals.finished.emit()
+            except RuntimeError:
+                print("OscClient not sending finished signal - quitting")
 
     def send_cue(self, cue: str):
         self.cues.put(cue)

@@ -51,7 +51,10 @@ class SensorInterface(QRunnable):
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         finally:
-            self.signals.finished.emit()
+            try:
+                self.signals.finished.emit()
+            except RuntimeError:
+                print("SensorInterface not sending finished signal - quitting")
 
     def sync(self):
         if self.debug:
