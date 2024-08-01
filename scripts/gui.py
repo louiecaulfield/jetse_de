@@ -104,7 +104,7 @@ class MainWindow(QMainWindow):
             self.config_widget.config_changed.connect(self.osc_client.update_config)
             self.osc_client.signals.finished.connect(self.on_osc_disconnect)
             for f in self.trackers.filters:
-                f.event.connect(self.osc_client.send_cue)
+                f.cue.connect(self.osc_client.send_cue)
             self.threadpool.start(self.osc_client)
             self.osc_connected.emit(True)
 

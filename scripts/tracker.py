@@ -15,6 +15,7 @@ from packet import Packet, Config
 
 
 class Columns:
+    INDEX       = 0
     CH          = 1
     THR_SLIDER  = 2
     THR_SPIN    = 3
@@ -50,11 +51,13 @@ class TrackerTable(QTableWidget):
         self.rates = {}
         for i, tracker in enumerate(config.trackers):
             self.addTracker(i, tracker)
-            self.setSpan(i * 2, 0, 2, 1)
+            self.setSpan(i * 2, Columns.INDEX, 2, 1)
             self.setSpan(i * 2, Columns.REPEAT_SAME, 2, 1)
             self.setSpan(i * 2, Columns.REPEAT_DIFF, 2, 1)
             self.setSpan(i * 2, Columns.CUE, 2, 1)
-            self.filters.append(TrackerFilter(tracker))
+            tracker_filter = TrackerFilter(tracker)
+            self.filters.append(tracker_filter)
+            tracker_filter.cue.connect(self.handle_cue)
 
         self.resizeRowsToContents()
         self.resizeColumnsToContents()
@@ -128,8 +131,6 @@ class TrackerTable(QTableWidget):
 
     def addTracker(self, idx: int, config: TrackerConfig):
         row = idx * 2
-        print(f"Adding tracker {config} at row {row}")
-
         label = QLabel(f"{idx}")
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setStyleSheet("font-weight: bold; font-size: 14pt;")
@@ -272,15 +273,23 @@ class TrackerTable(QTableWidget):
         self.flash_timers[widget] = (timer, palette)
 
         new_palette = widget.palette()
-        new_palette.setColor(QPalette.ColorRole.Base, Qt.GlobalColor.red)
+        if isinstance(widget, QLabel):
+            new_palette.setColor(QPalette.ColorRole.Text, Qt.GlobalColor.red)
+        else:
+            new_palette.setColor(QPalette.ColorRole.Base, Qt.GlobalColor.red)
         widget.setPalette(new_palette)
 
     def flash_restore(self, widget: QWidget):
         widget.setPalette(self.flash_timers[widget][1])
         del self.flash_timers[widget]
 
+    def handle_cue(self, cue: str, sender: "TrackerFilter", offset: int):
+        row = self.filters.index(sender) * 2
+        label = self.cellWidget(row, Columns.INDEX)
+        self.flash(label)
+
 class TrackerFilter(QObject):
-    event = pyqtSignal(str) # cue
+    cue = pyqtSignal(str, object, int) # cue, filter, channel offset
 
     def __init__(self, config: TrackerConfig):
         super(TrackerFilter, self).__init__()
@@ -290,7 +299,7 @@ class TrackerFilter(QObject):
         # self.update_config(config, "filter_")
         self.last_motion_times = {}
         self.cue_last_time = -1000
-        self.last_motion_id = -1
+        self.last_offset = -1
 
         # self.timeout.connect(self.emit)
         self.start_time = time.time()
@@ -308,17 +317,17 @@ class TrackerFilter(QObject):
             # print(f"Motion with interval {interval}")
             for idx, enabled in enumerate(self.config.axes[offset]):
                 if enabled and packet.motion[idx]:
-                    if packet.id != self.last_motion_id and interval > self.config.repeat_different:
-                        print("Sending cue for different foot")
-                        self.last_motion_id = packet.id
+                    if offset != self.last_offset and interval > self.config.repeat_different:
+                        # print("Sending cue for different foot")
+                        self.last_offset = offset
                         self.cue_last_time = packet.host_time
-                        self.event.emit(self.config.cue)
+                        self.cue.emit(self.config.cue, self, offset)
                         return
-                    elif packet.id == self.last_motion_id and interval > self.config.repeat_same:
-                        print("Sending cue for same foot")
+                    elif offset == self.last_offset and interval > self.config.repeat_same:
+                        # print("Sending cue for same foot")
                         self.cue_last_time = packet.host_time
-                        self.event.emit(self.config.cue)
+                        self.cue.emit(self.config.cue, self, offset)
                         return
                     else:
-                        print("Not sending cue, too fast repeat")
+                        # print("Not sending cue, too fast repeat")
                         return # One packet can only cause 1 que
