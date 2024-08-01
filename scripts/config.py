@@ -216,7 +216,7 @@ class Config(yaml.YAMLObject):
                                     [2*i+1, 2*i+2],
                                     [20] * 2,
                                     [10] * 2,
-                                    [[True] * 6] * 2,
+                                    [[True] * 6, [True] * 6],
                                     f"{(i+1)*10}", 500))
 
     def dump(self):
