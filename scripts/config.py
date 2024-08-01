@@ -211,6 +211,14 @@ class ConfigForm(QWidget):
         self.btn_connect_osc.setText("Disconnect" if connected else "Connect")
         self.btn_connect_osc.setEnabled(True)
 
+class TrackerConfig(yaml.YAMLObject):
+    def __init__(self, channels: List[int], threshold: int, duration: int, cue: str, interval: int):
+        self.channels = channels
+        self.threshold = threshold
+        self.duraction = duration
+        self.cue = cue
+        self.interval = interval
+
 class Config(yaml.YAMLObject):
     def __init__(self):
         self.osc_ip = "10.10.10.2"
@@ -219,10 +227,11 @@ class Config(yaml.YAMLObject):
         self.serial_port = ""
         self.autostart = False
 
-        self.cues={
-            1:"20",
-            2:"30",
-        }
+
+        self.trackers = [
+            TrackerConfig([1,2], 20, 10, "20"),
+            TrackerConfig([3,4], 25, 8,  "30"),
+        ]
 
     def dump(self):
         return yaml.dump(self)
