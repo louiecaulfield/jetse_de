@@ -93,10 +93,11 @@ void setup(void) {
   radio.enableDynamicPayloads();
   radio.enableAckPayload();
   radio.setDataRate(RF24_1MBPS);
+  radio.setChannel(frequency_for(CHANNEL));
 
   radio.openWritingPipe(address_for(CHANNEL));
   radio.stopListening();
-  log_info("Radio setup done");
+  log_info_fmt("Radio setup done - channel %d at freq %d", CHANNEL, 2400 + frequency_for(CHANNEL));
 
   packet.id = CHANNEL;
   log_info_fmt("Accelero tracker initialized on channel %d", CHANNEL);

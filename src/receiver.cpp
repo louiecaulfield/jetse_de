@@ -15,7 +15,6 @@ RF24 radios[] = {
 packet_t packet = {};
 
 #define N_RADIOS (sizeof(radios)/sizeof(radios[0]))
-#define PIPES_PER_RADIO 6
 
 #define CHANNELS (N_RADIOS * PIPES_PER_RADIO)
 conf_t config[CHANNELS];
@@ -34,6 +33,7 @@ void setup() {
     radios[i].enableDynamicPayloads();
     radios[i].enableAckPayload();
     radios[i].setDataRate(RF24_1MBPS);
+    radios[i].setChannel(FREQ_BASE + i);
 
     for(uint8_t j = 0; j < PIPES_PER_RADIO; j++) {
       uint8_t pipe = i * PIPES_PER_RADIO + j;

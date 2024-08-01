@@ -22,6 +22,10 @@ char debug_msg[100] = "";
 #define CHANNEL_ZERO 0xBAE1F00100
 #define address_for(channel) (CHANNEL_ZERO | (channel & 0xFF))
 
+#define PIPES_PER_RADIO 6
+#define FREQ_BASE 100
+#define frequency_for(channel) (FREQ_BASE + (((channel - 1) & 0xff) / PIPES_PER_RADIO))
+
 struct __attribute__ ((packed)) packet_t {
     /* Detector ID */
     uint8_t id;
