@@ -6,6 +6,7 @@ import yaml
 from pathlib import Path
 from serial.tools.list_ports import comports
 from math import inf
+from typing import List
 
 class ConfigForm(QWidget):
     config_changed = pyqtSignal(object, str)
@@ -93,30 +94,6 @@ class ConfigForm(QWidget):
         self.btn_connect_osc = QPushButton("Connect")
         self.btn_connect_osc.clicked.connect(self.osc_connect_clicked)
         form_with_button.addWidget(self.btn_connect_osc)
-
-        # Cues
-        cues = QTableWidget(len(self.config.channels), 5)
-        cues.setHorizontalHeaderLabels(["Ch", "Q", "x", "y", "z"])
-        for i, ch in enumerate(self.config.channels):
-            label = QTableWidgetItem(f"Ch {ch}")
-            label.setFlags(Qt.ItemFlag.NoItemFlags)
-            cues.setItem(i, 0, label)
-
-            value = QTableWidgetItem(self.config.cues[ch])
-            value.setFlags(Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsEnabled)
-            value.setData(Qt.ItemDataRole.UserRole, ch)
-            cues.setItem(i, 1, value)
-
-            for axis in range(3):
-                axis_checkbox = QCheckBox()
-                # value.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
-                cues.setCellWidget(i, 2+axis, axis_checkbox)
-
-        cues.setObjectName("cues")
-        cues.resizeColumnsToContents()
-        cues.itemChanged.connect(self.update_config)
-
-        form_with_button.addWidget(cues)
 
         box.setLayout(form_with_button)
 
@@ -229,8 +206,8 @@ class Config(yaml.YAMLObject):
 
 
         self.trackers = [
-            TrackerConfig([1,2], 20, 10, "20"),
-            TrackerConfig([3,4], 25, 8,  "30"),
+            TrackerConfig([1,2], 20, 10, "20", 500),
+            TrackerConfig([3,4], 25, 8,  "30", 500),
         ]
 
     def dump(self):
