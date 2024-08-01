@@ -321,10 +321,12 @@ class TrackerFilter(QObject):
                         # print("Sending cue for different foot")
                         self.last_offset = offset
                         self.cue_last_time = packet.host_time
+                        # print(f"Delay = {(time.time() - packet.host_time)*1000}")
                         self.cue.emit(self.config.cue, self, offset)
                         return
                     elif offset == self.last_offset and interval > self.config.repeat_same:
                         # print("Sending cue for same foot")
+                        # print(f"Delay = {(time.time() - packet.host_time)*1000}")
                         self.cue_last_time = packet.host_time
                         self.cue.emit(self.config.cue, self, offset)
                         return
