@@ -33,6 +33,8 @@ class SensorInterface(QRunnable):
                 else:
                     packet = Packet.from_bytes(self.port.read(Packet.size))
                     if packet is None:
+                        if not self.running:
+                            break
                         self.sync()
                     else:
                         self.rate.event()
