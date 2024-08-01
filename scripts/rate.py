@@ -19,4 +19,4 @@ class RateCounter:
     def __call__(self) -> float:
         if len(self.timestamps) < 2:
             return 0
-        return len(self.timestamps) / (self.timestamps[-1] - self.timestamps[0])
+        return (len(self.timestamps) - 1) / (self.timestamps[-1] - self.timestamps[0])
