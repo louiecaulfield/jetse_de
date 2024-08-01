@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QBoxLayout
 from PyQt6.QtWidgets import QLabel, QSpinBox, QSlider, QLineEdit, QCheckBox, QWidget
-from PyQt6.QtWidgets import QTableWidget
+from PyQt6.QtWidgets import QTableWidget, QHeaderView
 from PyQt6.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot, QTimer, Qt
 from PyQt6.QtGui import QPalette
 
@@ -61,6 +61,11 @@ class TrackerTable(QTableWidget):
 
         self.resizeRowsToContents()
         self.resizeColumnsToContents()
+
+        header = self.horizontalHeader()
+        header.setSectionResizeMode(Columns.THR_SLIDER, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(Columns.DUR_SLIDER, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(Columns.RATE, QHeaderView.ResizeMode.Stretch)
 
         self.packets = {}
         self.flash_timers : Dict[QWidget, QTimer] = {}

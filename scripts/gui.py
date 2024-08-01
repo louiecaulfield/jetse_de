@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from PyQt6.QtWidgets import *
-from PyQt6.QtCore import QThreadPool, pyqtSlot, pyqtSignal, QTimer
+from PyQt6.QtCore import QThreadPool, pyqtSlot, pyqtSignal, QTimer, QSize
 
 from worker import Worker
 from interface import SensorInterface
@@ -40,6 +40,7 @@ class MainWindow(QMainWindow):
         self.config_widget.osc_connect.connect(self.osc_connect)
         self.osc_connected.connect(self.config_widget.osc_connected)
         self.config_widget.config_changed.connect(self.config_changed)
+        self.config_widget.config_saved.connect(self.config_saved)
 
         # Tracker table
         self.trackers = TrackerTable(self.config)
@@ -120,6 +121,9 @@ class MainWindow(QMainWindow):
     def config_changed(self):
         self.config_dirty = True
 
+    def config_saved(self):
+        self.config_dirty = False
+
     def closeEvent(self,event):
         if self.config_dirty:
             result = QMessageBox.question(self,
@@ -134,6 +138,9 @@ class MainWindow(QMainWindow):
         if self.osc_client:
             self.osc_client.stop()
         event.accept()
+
+    def sizeHint(self):
+        return QSize(1100, 700)
 
 if __name__=="__main__":
     import argparse

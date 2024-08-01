@@ -12,6 +12,7 @@ class ConfigForm(QWidget):
     config_changed = pyqtSignal(object, str)
     serial_connect = pyqtSignal(str)
     osc_connect = pyqtSignal(str, int)
+    config_saved = pyqtSignal()
 
     def __init__(self, config, config_path):
 
@@ -20,7 +21,7 @@ class ConfigForm(QWidget):
         self.config = config
         self.config_path = config_path
 
-        layout = QVBoxLayout()
+        layout = QHBoxLayout()
 
         # General config
         box = QGroupBox("Connection")
@@ -98,16 +99,13 @@ class ConfigForm(QWidget):
 
         layout.addWidget(box)
 
-        box.setLayout(form)
-        layout.addWidget(box)
-
-        btn_save = QPushButton("save")
+        btn_save = QPushButton("save configuration")
         btn_save.clicked.connect(self.save_clicked)
-        layout.addWidget(btn_save)
+        layout_v = QVBoxLayout()
+        layout_v.addLayout(layout)
+        layout_v.addWidget(btn_save)
 
-        layout.addStretch(3)
-
-        self.setLayout(layout)
+        self.setLayout(layout_v)
 
     def update_config(self, args = None):
         item = self.sender()
@@ -145,8 +143,9 @@ class ConfigForm(QWidget):
         self.config.levels[channel][axis * 2 + direction] = level if enabled else inf if direction == 0 else -inf
 
     def save_clicked(self):
-        print(self.config.dump())
+        # print(self.config.dump())
         self.config.save(self.config_path)
+        self.config_saved.emit()
 
     def serial_refresh_ports(self):
         currentPort = self.combo_serial.currentData()
