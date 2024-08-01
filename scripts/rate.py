@@ -14,7 +14,6 @@ class RateCounter:
     def older_than(self, time_ms):
         if len(self.timestamps) == 0:
             return True
-        print(f"Older than {time_ms}? {time() - self.timestamps[-1]}")
         return (time() - self.timestamps[-1]) * 1000 > time_ms
 
     def __call__(self) -> float:

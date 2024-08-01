@@ -272,7 +272,6 @@ class TrackerFilter(QObject):
             interval = (packet.host_time - self.cue_last_time) * 1000
             # print(f"Motion with interval {interval}")
             for idx, enabled in enumerate(self.config.axes[offset]):
-                print(f"idx {idx} = {enabled} ")
                 if enabled and packet.motion[idx]:
                     if packet.id != self.last_motion_id and interval > self.config.repeat_different:
                         print("Sending cue for different foot")
