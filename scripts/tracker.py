@@ -23,11 +23,14 @@ class TrackerTable(QTableWidget):
         super().__init__(len(self.config.trackers)*2, len(TrackerTable.columns))
         self.setHorizontalHeaderLabels(TrackerTable.columns)
 
+        self.filters = []
+        self.rates = {}
         for i, tracker in enumerate(config.trackers):
             self.addTracker(i, tracker)
             self.setSpan(i * 2, 0, 2, 1)
             self.setSpan(i * 2, 11, 2, 1)
             self.setSpan(i * 2, 12, 2, 1)
+            self.filters.append(TrackerFilter(tracker))
 
         self.resizeRowsToContents()
         self.resizeColumnsToContents()
@@ -91,12 +94,13 @@ class TrackerTable(QTableWidget):
             # Motion axes
             for j, axis in enumerate(TrackerTable.axes):
                 axis_checkbox = QCheckBox()
-                axis_checkbox.setChecked(config.axes[i] & (1<<j))
+                axis_checkbox.setChecked(config.axes[i][j])
                 self.setCellWidget(row + i, 4 + j, axis_checkbox)
 
             rate_label = QLabel()
             rate_label.setText("-- Hz")
             self.setCellWidget(row + i, 10, rate_label)
+            self.rates[config.channels[i]] = RateCounter(30)
 
         # Repeat rate
         repeat_spin = QSpinBox()
@@ -109,8 +113,17 @@ class TrackerTable(QTableWidget):
         self.cue.setText(config.cue)
         self.setCellWidget(row + i, 12, self.cue)
 
-class TrackerFilter(QTimer):
-    update = pyqtSignal(int, int, int, float) # channel ID, axis, direction, time
+    def process(self, packet: Packet):
+        print(f"Packet: {packet}")
+        for filter in self.filters:
+            filter.process(packet)
+
+        self.rates[packet.id].event()
+
+
+
+class TrackerFilter(QObject):
+    event = pyqtSignal(str) # cue
 
     def __init__(self, config: TrackerConfig):
         super(TrackerFilter, self).__init__()
@@ -118,9 +131,10 @@ class TrackerFilter(QTimer):
         self.config = config
 
         # self.update_config(config, "filter_")
+        self.last_motion_times = {}
+        self.cue_last_time = {}
 
-        self.packet_prev = Packet(0, 0, (0,0,0))
-        self.timeout.connect(self.emit)
+        # self.timeout.connect(self.emit)
         self.start_time = time.time()
 
     def process(self, packet: Packet):
@@ -128,13 +142,11 @@ class TrackerFilter(QTimer):
             return
 
         packet_time = packet.host_time - self.start_time
-        time_diff = packet.sensor_time - self.packet_prev.sensor_time
 
-        # if ???:
-        #     self.update.emit(packet.id, axis, ??, packet.host_time)
-
-        self.packet_prev = packet
-        self.rate.event()
-
-    def emit(self):
-        pass
+        if(packet.motion_time != self.last_motion_times.get(packet.id, 0)):
+            self.last_motion_times[packet.id] = packet.motion_time
+            for idx, enabled in enumerate(self.config.axes):
+                if enabled and packet.motion[idx]:
+                    print(f"Sending cue for ch {packet.id} cos of axis {idx} = {Packet.motion_keys_short[idx]}")
+                    self.event.emit(self.config.cue)
+                    return

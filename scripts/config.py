@@ -193,7 +193,7 @@ class TrackerConfig(yaml.YAMLObject):
                  channels: List[int],
                  threshold: List[int],
                  duration: List[int],
-                 axes: List[int],
+                 axes: List[bool],
                  cue: str, interval: int):
         self.channels = channels
         self.threshold = threshold
@@ -216,7 +216,7 @@ class Config(yaml.YAMLObject):
                                     [2*i+1, 2*i+2],
                                     [20] * 2,
                                     [10] * 2,
-                                    [0b111111] * 2,
+                                    [[True] * 6] * 2,
                                     f"{(i+1)*10}", 500))
 
     def dump(self):

@@ -13,11 +13,9 @@ class OscClient(QRunnable):
         super(OscClient, self).__init__()
         self.ip = config.osc_ip
         self.port = config.osc_port
-        self.cues = config.cues.copy()
         self.running = False
         self.signals = WorkerSignals()
-        self.triggers = queue.Queue()
-        self.last_msg_time = {ch: time.time() for ch in config.cues.keys()}
+        self.cues = queue.Queue()
 
     @pyqtSlot()
     def run(self):
@@ -30,17 +28,9 @@ class OscClient(QRunnable):
 
             while(self.running):
                 try:
-                    (pid, axis, direction, rx_time) = self.triggers.get(True, 2)
-                    latency = time.time() - rx_time
-                    time_since_last = rx_time - self.last_msg_time[pid]
-                    if time_since_last > INTERVAL_MIN:
-                        cue_name = f"/cue/{self.cues[pid]}/start"
-                        self.client.send_message(cue_name, 1)
-                        print(f"Sent cue {cue_name} to {self.ip}:{self.port}")
-                        print(f"[@{rx_time}s D{time_since_last}s] Packet {pid} / {axis} / {direction} / {latency} s")
-                        self.last_msg_time[pid] = rx_time
-                    else:
-                        print("Supressing fast repeat")
+                    cue_name = self.cues.get(True, 2)
+                    self.client.send_message(cue_name, 1)
+                    print(f"Sent cue {cue_name} to {self.ip}:{self.port}")
                 except queue.Empty:
                     continue
 
@@ -51,14 +41,13 @@ class OscClient(QRunnable):
         finally:
             self.signals.finished.emit()
 
-    def handle_trigger(self, *args):
-        self.triggers.put(args)
+    def send_cue(self, cue: str):
+        print(f"OSC que {cue}")
+        self.cues.put(cue)
 
     def update_config(self, config: Config, item: str):
-        if not item in ["cues", "osc_ip", "osc_port"]:
+        if not item in ["osc_ip", "osc_port"]:
             return
-
-        self.cues = config.cues.copy()
 
     def stop(self):
         self.running = False
