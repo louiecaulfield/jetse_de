@@ -4,7 +4,7 @@
 #include <packet.h>
 
 #ifndef CHANNEL
-#define CHANNEL 9
+#define CHANNEL 14
 #endif
 
 #define POWERSAVE true
@@ -48,6 +48,7 @@ void setup(void) {
   Serial.begin(BAUD);
   while (!Serial)
     delay(10);
+  log_info("--------- STARTING TRACKER -----------");
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Wire.begin();
@@ -102,7 +103,7 @@ void setup(void) {
 }
 
 void update_config(conf_t* config) {
-  log_debug_fmt("CONF [%d] THR [%d] DUR [%d]", config->id, config->threshold, config->duration);
+  log_info_fmt("CONF [%d] THR [%d] DUR [%d]", config->id, config->threshold, config->duration);
   if(config->id == CHANNEL) {
     mpu.setMotionDetectionDuration(config->duration);
     mpu.setMotionDetectionThreshold(config->threshold);
@@ -111,7 +112,7 @@ void update_config(conf_t* config) {
     packet.cfg_threshold_update = true;
     packet.cfg_duration_update = true;
   } else {
-    log_debug_fmt("Config received for wrong channel %d (expecting " xstr(CHANNEL) ")", config->id);
+    log_info_fmt("Config received for wrong channel %d (expecting " xstr(CHANNEL) ")", config->id);
   }
 }
 
