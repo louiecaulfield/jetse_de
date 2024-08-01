@@ -18,7 +18,6 @@ class ConfigForm(QWidget):
         super(ConfigForm, self).__init__()
 
         self.config = config
-        self.dirty = False
         self.config_path = config_path
 
         layout = QVBoxLayout()
@@ -113,20 +112,17 @@ class ConfigForm(QWidget):
     def update_config(self, args = None):
         item = self.sender()
         tag = item.objectName()
+
         print(f"Updating config from {tag}")
         if isinstance(item, QSpinBox) or \
            isinstance(item, QDoubleSpinBox):
-            self.dirty = getattr(self.config, tag) != item.value()
             setattr(self.config, tag, item.value())
         elif isinstance(item, QLineEdit):
-            self.dirty = getattr(self.config, tag) != item.text()
             setattr(self.config, tag, item.text())
         elif isinstance(item, QComboBox):
-            self.dirty = getattr(self.config, tag) != item.currentData()
             setattr(self.config, tag, item.currentData())
         elif isinstance(item, QCheckBox):
             state = item.checkState() == Qt.CheckState.Checked
-            self.dirty = getattr(self.config, tag) != state
             setattr(self.config, tag, state)
         elif isinstance(item, QTableWidget):
             dictionary = getattr(self.config, tag)
@@ -134,7 +130,6 @@ class ConfigForm(QWidget):
             key = args.data(Qt.ItemDataRole.UserRole)
             value = args.text()
             print(f"key {key} value {value}")
-            self.dirty = dictionary[key] != value
             dictionary[key] = value
             setattr(self.config, tag, dictionary)
         else:
@@ -144,7 +139,6 @@ class ConfigForm(QWidget):
             case "serial_port":
                 self.btn_connect_serial.setEnabled(item.currentData() is not None)
 
-        print(f"After updating {tag} {self.dirty}")
         self.config_changed.emit(self.config, tag)
 
     def update_trigger(self, channel: int, axis: int, direction: int, level: float, enabled: bool):

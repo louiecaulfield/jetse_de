@@ -7,7 +7,7 @@ from worker import Worker
 from interface import SensorInterface
 from config import Config, ConfigForm
 from packet import Packet
-from tracker import TrackerWidget, TrackerFilter
+from tracker import TrackerFilter, TrackerTable
 from rate import RateCounter
 from osc_client import OscClient
 
@@ -22,6 +22,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self, config_path: str):
         self.config = Config.load(config_path)
+        self.config_dirty = False
 
         super().__init__()
         self.threadpool = QThreadPool()
@@ -32,42 +33,19 @@ class MainWindow(QMainWindow):
 
         layout = QVBoxLayout()
 
-        # Main layout (plots + config)
-        layout_main = QHBoxLayout()
-
         # Config
         self.config_widget = ConfigForm(self.config, config_path)
         self.config_widget.serial_connect.connect(self.serial_connect)
         self.serial_disconnected.connect(self.config_widget.serial_disconnected)
         self.config_widget.osc_connect.connect(self.osc_connect)
         self.osc_connected.connect(self.config_widget.osc_connected)
+        self.config_widget.config_changed.connect(self.config_changed)
 
-        # Plots
-        self.trackers = {}
-        plot_widget = QWidget()
-        plot_layout = QVBoxLayout()
-        plot_widget.setLayout(plot_layout)
-
-        for i, tracker in enumerate(self.config.trackers):
-            print(f"Tracker {i} -> {tracker}")
-            tracker_widget = TrackerWidget(tracker)
-
-            self.config_widget.config_changed.connect(tracker_widget.update_config)
-
-            # plot.trigger_changed.connect(sensor_filter.update_trigger)
-            # plot.trigger_changed.connect(self.config_widget.update_trigger)
-
-            self.trackers[i] = tracker_widget
-
-            self.destroyed.connect(tracker_widget.stop)
-            tracker_widget.start()
-
-            plot_layout.addLayout(tracker_widget)
-
-
-        layout_main.addWidget(plot_widget)
-        layout_main.addWidget(self.config_widget)
-        layout.addLayout(layout_main)
+        # Tracker table
+        self.trackers = TrackerTable(self.config)
+        self.trackers.config_changed.connect(self.config_changed)
+        layout.addWidget(self.config_widget)
+        layout.addWidget(self.trackers)
 
         # Initialization
         container = QWidget()
@@ -79,6 +57,7 @@ class MainWindow(QMainWindow):
         self.timer_status = QTimer()
         self.timer_status.setInterval(500)
         self.timer_status.timeout.connect(self.update_status)
+        self.timer_status.timeout.connect(self.trackers.update_rates)
         self.timer_status.start()
         self.destroyed.connect(self.timer_status.stop)
 
@@ -105,9 +84,9 @@ class MainWindow(QMainWindow):
                 return
 
             self.interface = SensorInterface(port)
-            for f in self.filters.values():
-                self.interface.signals.result.connect(f.process)
+            self.interface.signals.result.connect(self.trackers.process)
             self.interface.signals.finished.connect(self.on_serial_disconnect)
+            self.trackers.update_config.connect(self.interface.update_config)
             self.threadpool.start(self.interface)
         else:
             print("Stopping")
@@ -124,8 +103,8 @@ class MainWindow(QMainWindow):
             self.osc_client = OscClient(self.config)
             self.config_widget.config_changed.connect(self.osc_client.update_config)
             self.osc_client.signals.finished.connect(self.on_osc_disconnect)
-            for f in self.filters.values():
-                f.triggered.connect(self.osc_client.handle_trigger)
+            for f in self.trackers.filters:
+                f.event.connect(self.osc_client.send_cue)
             self.threadpool.start(self.osc_client)
             self.osc_connected.emit(True)
 
@@ -138,8 +117,11 @@ class MainWindow(QMainWindow):
         self.osc_client = None
         self.osc_connected.emit(False)
 
+    def config_changed(self):
+        self.config_dirty = True
+
     def closeEvent(self,event):
-        if self.config_widget.dirty:
+        if self.config_dirty:
             result = QMessageBox.question(self,
                         "Save config?",
                         f"Config changed. Save to file {self.config_widget.config_path}?",
