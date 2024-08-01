@@ -8,6 +8,9 @@ class RateCounter:
     def event(self):
         self.timestamps.append(time())
 
+    def reset(self):
+        self.timestamps.clear()
+
     def __call__(self) -> float:
         if len(self.timestamps) < 2:
             return 0
