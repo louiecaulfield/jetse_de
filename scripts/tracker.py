@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QBoxLayout
 from PyQt6.QtWidgets import QLabel, QSpinBox, QSlider, QLineEdit, QCheckBox, QWidget
 from PyQt6.QtWidgets import QTableWidget
 from PyQt6.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot, QTimer, Qt
+from PyQt6.QtGui import QPalette
 
 import time
 from config import Config, TrackerConfig
@@ -9,7 +10,7 @@ from rate import RateCounter
 from typing import List
 from math import inf
 from rate import RateCounter
-from typing import List
+from typing import List, Dict
 from packet import Packet, Config
 
 
@@ -25,6 +26,7 @@ class Columns:
     REPEAT_DIFF = 14
     CUE         = 15
 
+FLASH_TIMEOUT = 200
 class TrackerTable(QTableWidget):
     update_config = pyqtSignal(Config) # Channel ID, Config
     config_changed = pyqtSignal()
@@ -56,6 +58,9 @@ class TrackerTable(QTableWidget):
 
         self.resizeRowsToContents()
         self.resizeColumnsToContents()
+
+        self.packets = {}
+        self.flash_timers : Dict[QWidget, QTimer] = {}
 
     def table_value_changed(self, arg):
         for row in range(self.rowCount()):
@@ -233,6 +238,13 @@ class TrackerTable(QTableWidget):
             self.duration_spinners[row].setValue(packet.duration)
             self.duration_spinners[row].blockSignals(False)
 
+        last_packet = self.packets.get(packet.id, None)
+        if last_packet is None or packet.motion_time != last_packet.motion_time:
+            self.packets[packet.id] = packet
+            for axis, motion in enumerate(packet.motion):
+                if motion:
+                    self.flash(self.cellWidget(row, Columns.AXES[axis]))
+
     def update_rates(self):
         for row in range(self.rowCount()):
             rate = self.rates[row]
@@ -243,6 +255,29 @@ class TrackerTable(QTableWidget):
             else:
                 rate_widget.setStyleSheet("background-color: #b6ef8e")
                 rate_widget.setText(f"{rate():5.2f} Hz")
+
+    def flash(self, widget: QWidget):
+        if widget in self.flash_timers.keys():
+            self.flash_timers[widget][0].stop()
+            palette = self.flash_timers[widget][1]
+        else:
+            palette = widget.palette()
+
+        timer = QTimer()
+
+        timer.setInterval(FLASH_TIMEOUT)
+        timer.setSingleShot(True)
+        timer.timeout.connect(lambda: self.flash_restore(widget))
+        timer.start()
+        self.flash_timers[widget] = (timer, palette)
+
+        new_palette = widget.palette()
+        new_palette.setColor(QPalette.ColorRole.Base, Qt.GlobalColor.red)
+        widget.setPalette(new_palette)
+
+    def flash_restore(self, widget: QWidget):
+        widget.setPalette(self.flash_timers[widget][1])
+        del self.flash_timers[widget]
 
 class TrackerFilter(QObject):
     event = pyqtSignal(str) # cue
