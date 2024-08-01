@@ -195,7 +195,7 @@ class TrackerTable(QTableWidget):
             rate_label.setText("-- Hz")
             rate_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.setCellWidget(row + i, Columns.RATE, rate_label)
-            self.rates[row+i] = RateCounter(30)
+            self.rates[row+i] = RateCounter(5)
 
         # Repeat rate
         repeat_same_spin = QSpinBox()
@@ -253,6 +253,7 @@ class TrackerTable(QTableWidget):
             if rate.older_than(250):
                 rate_widget.setStyleSheet("background-color: #ef8e8e")
                 rate_widget.setText(f"N/A")
+                rate.reset()
             else:
                 rate_widget.setStyleSheet("background-color: #b6ef8e")
                 rate_widget.setText(f"{rate():5.2f} Hz")
