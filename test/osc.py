@@ -139,7 +139,6 @@ class OscQlab(OscThing):
                 return
             (axes_nrs, cue) = self.cue_map[packet.id]
 
-            send_cue = False
             for i in axes_nrs:
                 if packet.motion[i]:
                     self.send_que(cue, packet)

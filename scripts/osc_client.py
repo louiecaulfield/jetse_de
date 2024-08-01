@@ -29,7 +29,7 @@ class OscClient(QRunnable):
                 try:
                     cue_name = self.cues.get(True, 2)
                     self.client.send_message(cue_name, 1)
-                    print(f"Sent cue {cue_name} to {self.ip}:{self.port}")
+                    # print(f"Sent cue {cue_name} to {self.ip}:{self.port}")
                 except queue.Empty:
                     continue
 
@@ -41,7 +41,6 @@ class OscClient(QRunnable):
             self.signals.finished.emit()
 
     def send_cue(self, cue: str):
-        print(f"OSC que {cue}")
         self.cues.put(cue)
 
     def update_config(self, config: Config, item: str):
