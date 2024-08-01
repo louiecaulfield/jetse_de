@@ -189,11 +189,17 @@ class ConfigForm(QWidget):
         self.btn_connect_osc.setEnabled(True)
 
 class TrackerConfig(yaml.YAMLObject):
-    def __init__(self, channels: List[int], threshold: int, duration: int, cue: str, interval: int):
+    def __init__(self,
+                 channels: List[int],
+                 threshold: List[int],
+                 duration: List[int],
+                 axes: List[int],
+                 cue: str, interval: int):
         self.channels = channels
         self.threshold = threshold
-        self.duraction = duration
+        self.duration = duration
         self.cue = cue
+        self.axes = axes
         self.interval = interval
 
 class Config(yaml.YAMLObject):
@@ -204,10 +210,14 @@ class Config(yaml.YAMLObject):
         self.serial_port = ""
         self.autostart = False
 
-
         self.trackers = []
         for i in range(7):
-            self.trackers.append(TrackerConfig([2*i+1, 2*i+2], 20, 10, f"{(i+1)*10}", 500))
+            self.trackers.append(TrackerConfig(
+                                    [2*i+1, 2*i+2],
+                                    [20] * 2,
+                                    [10] * 2,
+                                    [0b111111] * 2,
+                                    f"{(i+1)*10}", 500))
 
     def dump(self):
         return yaml.dump(self)
