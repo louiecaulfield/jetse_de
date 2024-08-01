@@ -100,7 +100,6 @@ class MainWindow(QMainWindow):
 
     def osc_connect(self):
         if self.osc_client is None:
-            print(f"MAking new osc cliecnt {self.config.osc_ip}:{self.config.osc_port}")
             self.osc_client = OscClient(self.config)
             self.config_widget.config_changed.connect(self.osc_client.update_config)
             self.osc_client.signals.finished.connect(self.on_osc_disconnect)

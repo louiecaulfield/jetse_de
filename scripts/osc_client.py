@@ -20,10 +20,9 @@ class OscClient(QRunnable):
     @pyqtSlot()
     def run(self):
         try:
-            print("Starting OSC client")
             self.running = True
             self.client = udp_client.SimpleUDPClient(self.ip, self.port)
-            print("Client running")
+            print(f"Starting OSC client to {self.ip}:{self.port}")
 
             while(self.running):
                 try:

@@ -111,7 +111,7 @@ class ConfigForm(QWidget):
         item = self.sender()
         tag = item.objectName()
 
-        print(f"Updating config from {tag}")
+        # print(f"Updating config from {tag}")
         if isinstance(item, QSpinBox) or \
            isinstance(item, QDoubleSpinBox):
             setattr(self.config, tag, item.value())
