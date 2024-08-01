@@ -7,8 +7,7 @@ from worker import Worker
 from interface import SensorInterface
 from config import Config, ConfigForm
 from packet import Packet
-from filter import SensorFilter
-from plot import FootPlot
+from tracker import TrackerWidget, TrackerFilter
 from rate import RateCounter
 from osc_client import OscClient
 
@@ -28,7 +27,6 @@ class MainWindow(QMainWindow):
         self.threadpool = QThreadPool()
         self.interface = None
         self.osc_client = None
-        self.channels = self.config.channels
 
         self.setWindowTitle("Footstep tracker")
 
@@ -45,29 +43,26 @@ class MainWindow(QMainWindow):
         self.osc_connected.connect(self.config_widget.osc_connected)
 
         # Plots
-        self.plots = {}
-        self.filters = {}
+        self.trackers = {}
         plot_widget = QWidget()
         plot_layout = QVBoxLayout()
         plot_widget.setLayout(plot_layout)
 
-        for channel in self.channels:
-            sensor_filter = SensorFilter(channel, self.config)
-            plot = FootPlot(channel, self.config)
-            sensor_filter.accelero.connect(plot.accelero_handler)
+        for i, tracker in enumerate(self.config.trackers):
+            print(f"Tracker {i} -> {tracker}")
+            tracker_widget = TrackerWidget(tracker)
 
-            self.config_widget.config_changed.connect(sensor_filter.update_config)
+            self.config_widget.config_changed.connect(tracker_widget.update_config)
 
             # plot.trigger_changed.connect(sensor_filter.update_trigger)
             # plot.trigger_changed.connect(self.config_widget.update_trigger)
 
-            self.filters[channel] = sensor_filter
-            self.plots[channel] = plot
+            self.trackers[i] = tracker_widget
 
-            self.destroyed.connect(sensor_filter.stop)
-            sensor_filter.start()
+            self.destroyed.connect(tracker_widget.stop)
+            tracker_widget.start()
 
-            plot_layout.addLayout(plot)
+            plot_layout.addLayout(tracker_widget)
 
 
         layout_main.addWidget(plot_widget)
@@ -94,9 +89,9 @@ class MainWindow(QMainWindow):
         rates = {}
         if self.interface:
             rates["interface"] = self.interface.rate()
-        rates.update({f"CH{ch} filt": f.rate() for ch,f in self.filters.items()})
+        # rates.update({f"CH{ch} filt": f.rate() for ch,f in self.filters.items()})
 
-        rates.update({f"CH{ch} plot": f.rate() for ch,f in self.plots.items()})
+        # rates.update({f"CH{ch} plot": f.rate() for ch,f in self.plots.items()})
 
         status = " - ".join([f"{k}: [{v:5.2f}Hz]" for k,v in rates.items()])
         self.statusBar().showMessage(status)

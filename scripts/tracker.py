@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QDoubleSpinBox, QSpinBox, QComboBox
+from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QSlider, QLineEdit, QCheckBox
 from PyQt6.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot, QTimer, Qt
 
 import time
@@ -12,61 +12,101 @@ from packet import Packet
 
 
 class TrackerWidget(QHBoxLayout):
+    n_trackers = 0
+
     threshold_changed = pyqtSignal(int, int) #channel, axis, direction, level, enabled
     duration_changed = pyqtSignal(int, int) #channel, axis, direction, level, enabled
 
-    def __init__(self, channel: int, config: Config):
+    def __init__(self, config: TrackerConfig):
         super(TrackerWidget, self).__init__()
         self.rate = RateCounter(50)
-        self.channel = channel
+        self.config = config
 
-        # Channel ID label
+        # Tracker ID label
+        TrackerWidget.n_trackers += 1
+        self.label = QLabel(f"Tracker {TrackerWidget.n_trackers}")
+        self.addWidget(self.label)
 
         # Threshold slider & numeric updown
+        self.thresh_slider = QSlider(Qt.Orientation.Horizontal)
+        self.thresh_slider.setMinimum(0)
+        self.thresh_slider.setMaximum(200)
+        self.addWidget(self.thresh_slider)
+
+        self.thresh_spin = QSpinBox()
+        self.thresh_spin.setMinimum(self.thresh_slider.minimum())
+        self.thresh_spin.setMaximum(self.thresh_slider.maximum())
+        self.addWidget(self.thresh_spin)
+
+        self.thresh_slider.valueChanged.connect(self.thresh_spin.setValue)
+        self.thresh_spin.valueChanged.connect(self.thresh_slider.setValue)
 
         # Duration slider & numeric updown
+        self.duration_slider = QSlider(Qt.Orientation.Horizontal)
+        self.duration_slider.setMinimum(0)
+        self.duration_slider.setMaximum(200)
+        self.addWidget(self.duration_slider)
 
-        # Status: alive, motion x,y,z
+        self.duration_spin = QSpinBox()
+        self.duration_spin.setMinimum(self.duration_slider.minimum())
+        self.duration_spin.setMaximum(self.duration_slider.maximum())
+        self.addWidget(self.duration_spin)
 
-    def threshold_moved(self):
-        line = self.sender()
-        index = self.threshold_lines.index(line)
-        axis = index // 2
-        direction = index % 2
-        self.trigger_changed.emit(self.channel, axis, direction, line.getPos()[1], line.pen.color().alphaF() == 1.0)
+        self.duration_slider.valueChanged.connect(self.duration_spin.setValue)
+        self.duration_spin.valueChanged.connect(self.duration_slider.setValue)
 
-    def threshold_clicked(self):
-        sender = self.sender()
-        color = sender.pen.color()
-        if color.alphaF() == 1.0:
-            color.setAlphaF(0.5)
-        else:
-            color.setAlphaF(1)
+        # Status: update rate
+        self.rate = QLabel()
+        self.rate.setText("-- Hz")
+        self.addWidget(self.rate)
 
-        sender.pen.setColor(color)
-        self.threshold_moved()
+        # Motion
+        self.motion_boxes = []
+        self.motion_vlayout = QVBoxLayout()
+        for ch in self.config.channels:
+            layout = QHBoxLayout()
+            for _ in range(6):
+                self.motion_boxes.append(QCheckBox())
+                layout.addWidget(self.motion_boxes[-1])
+            self.motion_vlayout.addLayout(layout)
+        self.addLayout(self.motion_vlayout)
+
+        # Cue
+        self.cue = QLineEdit()
+        self.cue.setText(self.config.cue)
+        self.addWidget(self.cue)
+
+        self.filter = TrackerFilter(config)
+        self.filter.update.connect(self.update)
 
     def update(self, axis: int, data: List[tuple]):
         if axis == 0:
             self.rate.event()
 
+    def start(self):
+        self.filter.start()
+
+    def stop(self):
+        self.filter.stop()
+
+    def update_config(self, config: Config, item: str):
+        if not item.startswith("filter_"):
+            return
+
+
 class TrackerFilter(QTimer):
     update = pyqtSignal(int, int, int, float) # channel ID, axis, direction, time
 
-    def __init__(self, tracker_config: TrackerConfig, config: Config):
+    def __init__(self, config: TrackerConfig):
         super(TrackerFilter, self).__init__()
         self.rate = RateCounter(100)
-        self.config = tracker_config
+        self.config = config
 
         # self.update_config(config, "filter_")
 
         self.packet_prev = Packet(0, 0, (0,0,0))
         self.timeout.connect(self.emit)
         self.start_time = time.time()
-
-    # def update_config(self, config: Config, item: str):
-    #     if not item.startswith("filter_"):
-    #         return
 
     def process(self, packet: Packet):
         if packet.id not in self.config.channels:

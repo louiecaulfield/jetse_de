@@ -205,10 +205,9 @@ class Config(yaml.YAMLObject):
         self.autostart = False
 
 
-        self.trackers = [
-            TrackerConfig([1,2], 20, 10, "20", 500),
-            TrackerConfig([3,4], 25, 8,  "30", 500),
-        ]
+        self.trackers = []
+        for i in range(7):
+            self.trackers.append(TrackerConfig([2*i+1, 2*i+2], 20, 10, f"{(i+1)*10}", 500))
 
     def dump(self):
         return yaml.dump(self)
