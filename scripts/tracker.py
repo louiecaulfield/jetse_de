@@ -14,15 +14,16 @@ from packet import Packet, Config
 
 
 class Columns:
-    CH         = 1
-    THR_SLIDER = 2
-    THR_SPIN   = 3
-    DUR_SLIDER = 4
-    DUR_SPIN   = 5
-    AXES       = (6,7,8,9,10,11)
-    RATE       = 12
-    REPEAT     = 13
-    CUE        = 14
+    CH          = 1
+    THR_SLIDER  = 2
+    THR_SPIN    = 3
+    DUR_SLIDER  = 4
+    DUR_SPIN    = 5
+    AXES        = (6,7,8,9,10,11)
+    RATE        = 12
+    REPEAT_SAME = 13
+    REPEAT_DIFF = 14
+    CUE         = 15
 
 class TrackerTable(QTableWidget):
     update_config = pyqtSignal(Config) # Channel ID, Config
@@ -30,8 +31,8 @@ class TrackerTable(QTableWidget):
 
     axes = ["x+", "x-", "y+", "y-", "z+", "z-"]
 
-    #               0         1           2       3       4       5               12       13       14
-    columns = ["tracker", "channel", "threshold", "", "duration", ""] + axes + ["rate", "repeat", "cue"]
+    #               0         1           2       3       4       5               12       13           14       15
+    columns = ["tracker", "channel", "threshold", "", "duration", ""] + axes + ["rate", "rpt same", "rpt diff", "cue"]
 
     n_trackers = 0
 
@@ -50,7 +51,8 @@ class TrackerTable(QTableWidget):
         for i, tracker in enumerate(config.trackers):
             self.addTracker(i, tracker)
             self.setSpan(i * 2, 0, 2, 1)
-            self.setSpan(i * 2, Columns.REPEAT, 2, 1)
+            self.setSpan(i * 2, Columns.REPEAT_SAME, 2, 1)
+            self.setSpan(i * 2, Columns.REPEAT_DIFF, 2, 1)
             self.setSpan(i * 2, Columns.CUE, 2, 1)
             self.filters.append(TrackerFilter(tracker))
 
@@ -106,9 +108,13 @@ class TrackerTable(QTableWidget):
                 print(f"Rate changed for tracker {tracker_id} -> {arg}")
                 raise Exception("IMPOSSIBLE")
 
-            case Columns.REPEAT:
-                print(f"Repeat changed for tracker {tracker_id} -> {arg}")
-                tracker.repeat = arg
+            case Columns.REPEAT_SAME:
+                print(f"Repeat same changed for tracker {tracker_id} -> {arg}")
+                tracker.repeat_same = arg
+
+            case Columns.REPEAT_DIFF:
+                print(f"Repeat diff changed for tracker {tracker_id} -> {arg}")
+                tracker.repeat_different = arg
 
             case Columns.CUE:
                 print(f"Cue changed for tracker {tracker_id} -> {arg}")
@@ -186,12 +192,19 @@ class TrackerTable(QTableWidget):
             self.rates[row+i] = RateCounter(30)
 
         # Repeat rate
-        repeat_spin = QSpinBox()
-        repeat_spin.setMinimum(0)
-        repeat_spin.setMaximum(1000)
-        repeat_spin.setValue(config.interval)
-        repeat_spin.valueChanged.connect(self.table_value_changed)
-        self.setCellWidget(row + i, Columns.REPEAT, repeat_spin)
+        repeat_same_spin = QSpinBox()
+        repeat_same_spin.setMinimum(0)
+        repeat_same_spin.setMaximum(2000)
+        repeat_same_spin.setValue(config.repeat_same)
+        repeat_same_spin.valueChanged.connect(self.table_value_changed)
+        self.setCellWidget(row + i, Columns.REPEAT_SAME, repeat_same_spin)
+
+        repeat_diff_spin = QSpinBox()
+        repeat_diff_spin.setMinimum(0)
+        repeat_diff_spin.setMaximum(2000)
+        repeat_diff_spin.setValue(config.repeat_different)
+        repeat_diff_spin.valueChanged.connect(self.table_value_changed)
+        self.setCellWidget(row + i, Columns.REPEAT_DIFF, repeat_diff_spin)
 
         self.cue = QLineEdit()
         self.cue.setText(config.cue)
@@ -199,7 +212,6 @@ class TrackerTable(QTableWidget):
         self.setCellWidget(row + i, Columns.CUE, self.cue)
 
     def process(self, packet: Packet):
-        print(f"Packet: {packet}")
         for filter in self.filters:
             filter.process(packet)
 
@@ -208,7 +220,6 @@ class TrackerTable(QTableWidget):
                 self.updateRowChannelInfo(row, packet)
 
     def updateRowChannelInfo(self, row: int, packet: Packet):
-        print(f"Updating row {row} for channel {packet.id}")
         self.rates[row].event()
 
         if packet.cfg_update:
@@ -236,7 +247,8 @@ class TrackerFilter(QObject):
 
         # self.update_config(config, "filter_")
         self.last_motion_times = {}
-        self.cue_last_time = {}
+        self.cue_last_time = -1000
+        self.last_motion_id = -1
 
         # self.timeout.connect(self.emit)
         self.start_time = time.time()
@@ -249,8 +261,21 @@ class TrackerFilter(QObject):
 
         if(packet.motion_time != self.last_motion_times.get(packet.id, 0)):
             self.last_motion_times[packet.id] = packet.motion_time
+            interval = (packet.host_time - self.cue_last_time) * 1000
+            # print(f"Motion with interval {interval}")
             for idx, enabled in enumerate(self.config.axes):
                 if enabled and packet.motion[idx]:
-                    print(f"Sending cue {self.config.cue} for ch {packet.id} cos of axis {idx} = {Packet.motion_keys_short[idx]}")
-                    self.event.emit(self.config.cue)
-                    return
+                    if packet.id != self.last_motion_id and interval > self.config.repeat_different:
+                        # print("Sending cue for different foot")
+                        self.last_motion_id = packet.id
+                        self.cue_last_time = packet.host_time
+                        self.event.emit(self.config.cue)
+                        return
+                    elif packet.id == self.last_motion_id and interval > self.config.repeat_same:
+                        # print("Sending cue for same foot")
+                        self.cue_last_time = packet.host_time
+                        self.event.emit(self.config.cue)
+                        return
+                    else:
+                        print("Not sending cue, too fast repeat")
+                        return # One packet can only cause 1 que

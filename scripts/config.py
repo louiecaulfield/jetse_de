@@ -188,13 +188,16 @@ class TrackerConfig(yaml.YAMLObject):
                  threshold: List[int],
                  duration: List[int],
                  axes: List[bool],
-                 cue: str, interval: int):
+                 cue: str,
+                 repeat_same: int,
+                 repeat_different: int):
         self.channels = channels
         self.threshold = threshold
         self.duration = duration
         self.cue = cue
         self.axes = axes
-        self.interval = interval
+        self.repeat_same = repeat_same
+        self.repeat_different = repeat_different
 
 class Config(yaml.YAMLObject):
     def __init__(self):
@@ -211,7 +214,9 @@ class Config(yaml.YAMLObject):
                                     [20] * 2,
                                     [10] * 2,
                                     [[True] * 6, [True] * 6],
-                                    f"{(i+1)*10}", 500))
+                                    f"{(i+1)*10}",
+                                    750,
+                                    750 // 3))
 
     def dump(self):
         return yaml.dump(self)
