@@ -40,7 +40,6 @@ class TrackerTable(QTableWidget):
         super().__init__(len(self.config.trackers)*2, len(TrackerTable.columns))
         self.setHorizontalHeaderLabels(TrackerTable.columns)
 
-
         self.threshold_sliders  = {}
         self.threshold_spinners = {}
         self.duration_sliders   = {}
@@ -77,6 +76,7 @@ class TrackerTable(QTableWidget):
             case Columns.CH:
                 print(f"Channel changed for tracker {tracker_id} -> {arg}")
                 tracker.channels[offset] = arg
+                self.update_config.emit(Config(tracker.channels[offset], tracker.threshold[offset], tracker.duration[offset]))
                 self.rates[row].reset()
 
             case Columns.THR_SLIDER:
@@ -210,8 +210,8 @@ class TrackerTable(QTableWidget):
     def updateRowChannelInfo(self, row: int, packet: Packet):
         print(f"Updating row {row} for channel {packet.id}")
         self.rates[row].event()
-        if packet.cfg_update:
 
+        if packet.cfg_update:
             self.threshold_spinners[row].blockSignals(True)
             self.threshold_sliders[row].setValue(packet.threshold)
             self.threshold_sliders[row].setValue(packet.threshold)
