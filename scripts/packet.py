@@ -63,3 +63,17 @@ class Packet():
         return cls(id,
                    time() - cls.now,
                    False, 0, 0, [], -1, tuple([random() * i for i in ranges]))
+
+class Config():
+    def __init__(self, channel: int, threshold: int, duration: int):
+        self.channel = channel & 0xff
+        self.threshold = threshold & 0xff
+        self.duration = duration & 0xff
+
+    def bytes(self) -> bytes:
+        payload = [0xE1, 0xBA, self.channel, self.threshold, self.duration]
+        payload.append(sum(payload) & 0xff)
+        return bytes(payload)
+
+    def __repr__(self):
+        return f"<Config:CH{self.channel}:THR{self.threshold}:DUR{self.duration}>"
