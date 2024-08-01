@@ -19,7 +19,6 @@ class OscClient(QRunnable):
 
     @pyqtSlot()
     def run(self):
-        INTERVAL_MIN = 1.000
         try:
             print("Starting OSC client")
             self.running = True
