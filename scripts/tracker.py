@@ -29,10 +29,8 @@ class TrackerTable(QTableWidget):
     update_config = pyqtSignal(Config) # Channel ID, Config
     config_changed = pyqtSignal()
 
-    axes = ["x+", "x-", "y+", "y-", "z+", "z-"]
-
-    #               0         1           2       3       4       5               12       13           14       15
-    columns = ["tracker", "channel", "threshold", "", "duration", ""] + axes + ["rate", "rpt same", "rpt diff", "cue"]
+    #               0         1           2       3       4       5                                   12       13           14       15
+    columns = ["tracker", "channel", "threshold", "", "duration", ""] + Packet.motion_keys_short + ["rate", "rpt same", "rpt diff", "cue"]
 
     n_trackers = 0
 
@@ -101,8 +99,9 @@ class TrackerTable(QTableWidget):
 
             case axis if column in Columns.AXES:
                 axis -= Columns.AXES[0]
-                print(f"Axis changed for tracker {tracker_id} / {axis} -> {arg}")
-                tracker.axes[offset][axis] = (arg == Qt.CheckState.Checked)
+                state = Qt.CheckState(arg)
+                print(f"Axis changed for tracker {tracker_id} / {axis} -> {state} =? {state == Qt.CheckState.Checked}")
+                tracker.axes[offset][axis] = state == Qt.CheckState.Checked
 
             case Columns.RATE:
                 print(f"Rate changed for tracker {tracker_id} -> {arg}")
@@ -180,7 +179,7 @@ class TrackerTable(QTableWidget):
             self.duration_spinners[row+i] = duration_spin
 
             # Motion axes
-            for j, axis in enumerate(TrackerTable.axes):
+            for j, axis in enumerate(Packet.motion_keys_short):
                 axis_checkbox = QCheckBox()
                 axis_checkbox.setChecked(config.axes[i][j])
                 axis_checkbox.stateChanged.connect(self.table_value_changed)
@@ -264,6 +263,7 @@ class TrackerFilter(QObject):
     def process(self, packet: Packet):
         if packet.id not in self.config.channels:
             return
+        offset = self.config.channels.index(packet.id)
 
         packet_time = packet.host_time - self.start_time
 
@@ -271,16 +271,17 @@ class TrackerFilter(QObject):
             self.last_motion_times[packet.id] = packet.motion_time
             interval = (packet.host_time - self.cue_last_time) * 1000
             # print(f"Motion with interval {interval}")
-            for idx, enabled in enumerate(self.config.axes):
+            for idx, enabled in enumerate(self.config.axes[offset]):
+                print(f"idx {idx} = {enabled} ")
                 if enabled and packet.motion[idx]:
                     if packet.id != self.last_motion_id and interval > self.config.repeat_different:
-                        # print("Sending cue for different foot")
+                        print("Sending cue for different foot")
                         self.last_motion_id = packet.id
                         self.cue_last_time = packet.host_time
                         self.event.emit(self.config.cue)
                         return
                     elif packet.id == self.last_motion_id and interval > self.config.repeat_same:
-                        # print("Sending cue for same foot")
+                        print("Sending cue for same foot")
                         self.cue_last_time = packet.host_time
                         self.event.emit(self.config.cue)
                         return
