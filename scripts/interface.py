@@ -2,7 +2,7 @@ from PyQt6.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot
 import sys, traceback
 from worker import WorkerSignals
 
-from packet import Packet
+from packet import Packet, Config
 from queue import Queue
 from rate import RateCounter
 import serial
@@ -14,6 +14,8 @@ class SensorInterface(QRunnable):
         self.portname = port
         self.running = False
         self.signals = WorkerSignals()
+        self.config_q = Queue()
+        self.debug = False
 
     @pyqtSlot()
     def run(self):
@@ -26,14 +28,21 @@ class SensorInterface(QRunnable):
             self.sync()
 
             while(self.running):
-                packet = Packet.from_bytes(self.port.read(Packet.size))
-                if packet is None:
-                    self.sync()
+                if(self.debug):
+                    print(self.port.readline())
                 else:
-                    self.rate.event()
-                    self.signals.result.emit(packet)
-                    # print(packet.sensor_time - last_packet.sensor_time)
-                    # last_packet = packet
+                    packet = Packet.from_bytes(self.port.read(Packet.size))
+                    if packet is None:
+                        self.sync()
+                    else:
+                        self.rate.event()
+                        self.signals.result.emit(packet)
+
+                if not self.config_q.empty():
+                    cfg = self.config_q.get()
+                    print(f"Sending config {cfg}")
+                    self.port.write(cfg.bytes())
+
 
         except:
             traceback.print_exc()
@@ -43,6 +52,8 @@ class SensorInterface(QRunnable):
             self.signals.finished.emit()
 
     def sync(self):
+        if self.debug:
+            return
         tries = 0
         magic = 0x00
         packet = None
@@ -65,3 +76,6 @@ class SensorInterface(QRunnable):
     def stop(self):
         self.running = False
         self.port.cancel_read()
+
+    def update_config(self, config: Config):
+        self.config_q.put(config)
