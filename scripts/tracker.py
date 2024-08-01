@@ -188,6 +188,7 @@ class TrackerTable(QTableWidget):
 
             rate_label = QLabel()
             rate_label.setText("-- Hz")
+            rate_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.setCellWidget(row + i, Columns.RATE, rate_label)
             self.rates[row+i] = RateCounter(30)
 
@@ -235,7 +236,14 @@ class TrackerTable(QTableWidget):
 
     def update_rates(self):
         for row in range(self.rowCount()):
-            self.cellWidget(row, Columns.RATE).setText(f"{self.rates[row]():5.2f} Hz")
+            rate = self.rates[row]
+            rate_widget : QLabel = self.cellWidget(row, Columns.RATE)
+            if rate.older_than(250):
+                rate_widget.setStyleSheet("background-color: #ef8e8e")
+                rate_widget.setText(f"N/A")
+            else:
+                rate_widget.setStyleSheet("background-color: #b6ef8e")
+                rate_widget.setText(f"{rate():5.2f} Hz")
 
 class TrackerFilter(QObject):
     event = pyqtSignal(str) # cue
