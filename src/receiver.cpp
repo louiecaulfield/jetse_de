@@ -152,7 +152,5 @@ void loop() {
       send_config(pipe);
     }
   }
-#ifndef SERIAL_DEBUG
   receive_config();
-#endif
 }
