@@ -9,7 +9,7 @@
 7. `/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 -m venv .venv`
 8. `source .venv/bin/activate`
 9. `pip install -r requirements.txt`
-10. `./scripts/gui.py`
+10. `./scripts/Voetstappen`
 
 # Runnen (op macos)
 
@@ -17,4 +17,4 @@
 2. Ga naar folder waar het is geinstalleer<br/>
    `cd Documents/DE/voetstappen`
 3. `source .venv/bin/activate`
-4. `./scripts/gui.py`
+4. `./scripts/Voetstappen`
