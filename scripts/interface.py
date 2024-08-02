@@ -42,7 +42,7 @@ class SensorInterface(QRunnable):
 
                 if not self.config_q.empty():
                     cfg = self.config_q.get()
-                    print(f"Sending config {cfg}")
+                    # print(f"Sending config {cfg}")
                     self.port.write(cfg.bytes())
 
 

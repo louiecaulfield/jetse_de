@@ -87,49 +87,49 @@ class TrackerTable(QTableWidget):
 
         match column:
             case Columns.CH:
-                print(f"Channel changed for tracker {tracker_id} -> {arg}")
+                # print(f"Channel changed for tracker {tracker_id} -> {arg}")
                 tracker.channels[offset] = arg
                 self.update_config.emit(Config(tracker.channels[offset], tracker.threshold[offset], tracker.duration[offset]))
                 self.rates[row].reset()
 
             case Columns.THR_SLIDER:
-                print(f"Threshold slider changed for tracker {tracker_id} -> {arg}")
+                # print(f"Threshold slider changed for tracker {tracker_id} -> {arg}")
                 tracker.threshold[offset] = arg
 
             case Columns.THR_SPIN:
-                print(f"Threshold spinner changed for tracker {tracker_id} -> {arg}")
+                # print(f"Threshold spinner changed for tracker {tracker_id} -> {arg}")
                 tracker.threshold[offset] = arg
                 self.update_config.emit(Config(tracker.channels[offset], tracker.threshold[offset], tracker.duration[offset]))
 
             case Columns.DUR_SLIDER:
-                print(f"Duration slider changed for tracker {tracker_id} -> {arg}")
+                # print(f"Duration slider changed for tracker {tracker_id} -> {arg}")
                 tracker.duration[offset] = arg
 
             case Columns.DUR_SPIN:
-                print(f"Duration spinner changed for tracker {tracker_id} -> {arg}")
+                # print(f"Duration spinner changed for tracker {tracker_id} -> {arg}")
                 tracker.duration[offset] = arg
                 self.update_config.emit(Config(tracker.channels[offset], tracker.threshold[offset], tracker.duration[offset]))
 
             case axis if column in Columns.AXES:
                 axis -= Columns.AXES[0]
                 state = Qt.CheckState(arg)
-                print(f"Axis changed for tracker {tracker_id} / {axis} -> {state} =? {state == Qt.CheckState.Checked}")
+                # print(f"Axis changed for tracker {tracker_id} / {axis} -> {state} =? {state == Qt.CheckState.Checked}")
                 tracker.axes[offset][axis] = state == Qt.CheckState.Checked
 
             case Columns.RATE:
-                print(f"Rate changed for tracker {tracker_id} -> {arg}")
+                # print(f"Rate changed for tracker {tracker_id} -> {arg}")
                 raise Exception("IMPOSSIBLE")
 
             case Columns.REPEAT_SAME:
-                print(f"Repeat same changed for tracker {tracker_id} -> {arg}")
+                # print(f"Repeat same changed for tracker {tracker_id} -> {arg}")
                 tracker.repeat_same = arg
 
             case Columns.REPEAT_DIFF:
-                print(f"Repeat diff changed for tracker {tracker_id} -> {arg}")
+                # print(f"Repeat diff changed for tracker {tracker_id} -> {arg}")
                 tracker.repeat_different = arg
 
             case Columns.CUE:
-                print(f"Cue changed for tracker {tracker_id} -> {arg}")
+                # print(f"Cue changed for tracker {tracker_id} -> {arg}")
                 tracker.cue = arg
 
         self.config_changed.emit()
