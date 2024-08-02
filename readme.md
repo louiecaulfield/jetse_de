@@ -5,10 +5,11 @@
 3. Open terminal
 4. Ga naar folder waar je de applicatie wil installeren (bv `cd Documents/DE`)
 5. `git clone https://github.com/louiecaulfield/jetse_de voetstappen`
-6. `/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 -m venv .venv`
-7. `source .venv/bin/activate`
-8. `pip install -r requirements.txt`
-9. `./scripts/gui.py`
+6. `cd voetstappen`
+7. `/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 -m venv .venv`
+8. `source .venv/bin/activate`
+9. `pip install -r requirements.txt`
+10. `./scripts/gui.py`
 
 # Runnen (op macos)
 
