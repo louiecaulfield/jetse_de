@@ -124,9 +124,12 @@ void send_config(uint8_t pipe) {
     log_debug("Flushing TX FIFO");
     radio.flush_tx();
   }
-  log_debug_fmt("Writing ACK payload on pipe %d: [Ch %d] threshold=%d duration=%d",
-                  pipe, config[pipe].id, config[pipe].threshold, config[pipe].duration);
-  config_update[pipe] = !radio.writeAckPayload(pipe, &config[pipe], sizeof(config[0]));
+  log_debug_fmt("Writing ACK payload on Radio %d, pipe %d: [Ch %d] threshold=%d duration=%d",
+                pipe / PIPES_PER_RADIO, pipe % PIPES_PER_RADIO,
+                config[pipe].id,
+                config[pipe].threshold,
+                config[pipe].duration);
+  config_update[pipe] = !radio.writeAckPayload(pipe % PIPES_PER_RADIO, &config[pipe], sizeof(config[0]));
 }
 
 int pipe = -1;
