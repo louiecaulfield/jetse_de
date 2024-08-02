@@ -255,10 +255,12 @@ class TrackerTable(QTableWidget):
         for row in range(self.rowCount()):
             rate = self.rates[row]
             rate_widget : QLabel = self.cellWidget(row, Columns.RATE)
-            if rate.older_than(250):
+            if rate.older_than(1000):
                 rate_widget.setStyleSheet("background-color: #ef8e8e")
                 rate_widget.setText(f"N/A")
                 rate.reset()
+            elif rate.older_than(400):
+                rate_widget.setStyleSheet("background-color: #efd042")
             else:
                 rate_widget.setStyleSheet("background-color: #b6ef8e")
                 rate_widget.setText(f"{rate():5.2f} Hz")
