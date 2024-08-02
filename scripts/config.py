@@ -166,7 +166,10 @@ class ConfigForm(QWidget):
         self.btn_connect_serial.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaStop))
         self.serial_connect.emit(self.config.serial_port)
 
-    def serial_disconnected(self):
+    def serial_connected(self, connected: bool):
+        if connected:
+            return
+
         self.serial_refresh_ports()
         self.combo_serial.setEnabled(True)
         self.btn_refresh.setEnabled(True)

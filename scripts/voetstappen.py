@@ -17,7 +17,7 @@ from time import sleep
 from typing import List
 
 class MainWindow(QMainWindow):
-    serial_disconnected = pyqtSignal()
+    serial_connected = pyqtSignal(bool)
     osc_connected = pyqtSignal(bool)
 
     def __init__(self, config_path: str):
@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
         # Config
         self.config_widget = ConfigForm(self.config, config_path)
         self.config_widget.serial_connect.connect(self.serial_connect)
-        self.serial_disconnected.connect(self.config_widget.serial_disconnected)
+        self.serial_connected.connect(self.config_widget.serial_connected)
         self.config_widget.osc_connect.connect(self.osc_connect)
         self.osc_connected.connect(self.config_widget.osc_connected)
         self.config_widget.config_changed.connect(self.config_changed)
@@ -45,6 +45,7 @@ class MainWindow(QMainWindow):
         # Tracker table
         self.trackers = TrackerTable(self.config)
         self.trackers.config_changed.connect(self.config_changed)
+        self.serial_connected.connect(self.trackers.interface_connected)
         layout.addWidget(self.config_widget)
         layout.addWidget(self.trackers)
 
@@ -81,7 +82,7 @@ class MainWindow(QMainWindow):
             print(f"Connecting to {port}")
             if port is None:
                 self.statusBar().showMessage("no interface selected")
-                self.serial_disconnected.emit()
+                self.serial_connected.emit(False)
                 return
 
             self.interface = SensorInterface(port)
@@ -89,6 +90,7 @@ class MainWindow(QMainWindow):
             self.interface.signals.finished.connect(self.on_serial_disconnect)
             self.trackers.update_config.connect(self.interface.update_config)
             self.threadpool.start(self.interface)
+            self.serial_connected.emit(True)
         else:
             print("Stopping")
             self.interface.stop()
@@ -96,7 +98,7 @@ class MainWindow(QMainWindow):
     def on_serial_disconnect(self):
         print("Sensor interface disconnected")
         self.interface = None
-        self.serial_disconnected.emit()
+        self.serial_connected.emit(False)
 
     def osc_connect(self):
         if self.osc_client is None:

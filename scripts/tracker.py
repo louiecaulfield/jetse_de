@@ -291,6 +291,16 @@ class TrackerTable(QTableWidget):
         label = self.cellWidget(row, Columns.INDEX)
         self.flash(label)
 
+    def interface_connected(self, connected: bool):
+        if not connected:
+            return
+
+        for tracker in self.config.trackers:
+            for i, ch in enumerate(trackers.channels):
+                cfg = Config(ch, tracker.threshold[i], tracker.duration[i])
+                print(f"Sending config to tracker of channel {ch} [{cfg}]")
+                self.update_config.emit(cfg)
+
 class TrackerFilter(QObject):
     cue = pyqtSignal(str, object, int) # cue, filter, channel offset
 
