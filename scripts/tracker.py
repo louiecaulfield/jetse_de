@@ -296,7 +296,7 @@ class TrackerTable(QTableWidget):
             return
 
         for tracker in self.config.trackers:
-            for i, ch in enumerate(trackers.channels):
+            for i, ch in enumerate(tracker.channels):
                 cfg = Config(ch, tracker.threshold[i], tracker.duration[i])
                 print(f"Sending config to tracker of channel {ch} [{cfg}]")
                 self.update_config.emit(cfg)
