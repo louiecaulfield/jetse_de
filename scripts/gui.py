@@ -56,7 +56,7 @@ class MainWindow(QMainWindow):
         self.statusBar()
 
         self.timer_status = QTimer()
-        self.timer_status.setInterval(500)
+        self.timer_status.setInterval(100)
         self.timer_status.timeout.connect(self.update_status)
         self.timer_status.timeout.connect(self.trackers.update_rates)
         self.timer_status.start()

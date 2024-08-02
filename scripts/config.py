@@ -209,13 +209,13 @@ class Config(yaml.YAMLObject):
         self.trackers = []
         for i in range(7):
             self.trackers.append(TrackerConfig(
-                                    [2*i+1, 2*i+2],
-                                    [20] * 2,
-                                    [10] * 2,
-                                    [[True] * 6, [True] * 6],
-                                    f"/cue/{(i+1)*10}/start",
-                                    750,
-                                    750 // 3))
+                                    channels=[2*i+1, 2*i+2],
+                                    threshold=[35] * 2,
+                                    duration=[5] * 2,
+                                    axes=[[True] * 6, [True] * 6],
+                                    cue=f"/cue/{(i+1)*10}/start",
+                                    repeat_different=500,
+                                    repeat_same=500))
 
     def dump(self):
         return yaml.dump(self)
