@@ -213,7 +213,7 @@ class Config(yaml.YAMLObject):
                                     [20] * 2,
                                     [10] * 2,
                                     [[True] * 6, [True] * 6],
-                                    f"{(i+1)*10}",
+                                    f"/cue/{(i+1)*10}/start",
                                     750,
                                     750 // 3))
 
