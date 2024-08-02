@@ -268,9 +268,9 @@ class TrackerTable(QTableWidget):
     def flash(self, widget: QWidget):
         if widget in self.flash_timers.keys():
             self.flash_timers[widget][0].stop()
-            palette = self.flash_timers[widget][1]
+            stylesheet = self.flash_timers[widget][1]
         else:
-            palette = widget.palette()
+            stylesheet = widget.styleSheet()
 
         timer = QTimer()
 
@@ -278,17 +278,12 @@ class TrackerTable(QTableWidget):
         timer.setSingleShot(True)
         timer.timeout.connect(lambda: self.flash_restore(widget))
         timer.start()
-        self.flash_timers[widget] = (timer, palette)
+        self.flash_timers[widget] = (timer, stylesheet)
 
-        new_palette = widget.palette()
-        if isinstance(widget, QLabel):
-            new_palette.setColor(QPalette.ColorRole.Text, Qt.GlobalColor.red)
-        else:
-            new_palette.setColor(QPalette.ColorRole.Base, Qt.GlobalColor.red)
-        widget.setPalette(new_palette)
+        widget.setStyleSheet(stylesheet + "background-color:red;")
 
     def flash_restore(self, widget: QWidget):
-        widget.setPalette(self.flash_timers[widget][1])
+        widget.setStyleSheet(self.flash_timers[widget][1])
         del self.flash_timers[widget]
 
     def handle_cue(self, cue: str, sender: "TrackerFilter", offset: int):
