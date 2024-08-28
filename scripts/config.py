@@ -227,7 +227,9 @@ class TrackerConfig(yaml.YAMLObject):
                  axes: List[bool],
                  cue: str,
                  repeat_same: int,
-                 repeat_different: int):
+                 repeat_different: int,
+                 enabled: bool,
+                 alias: str):
         self.channels = channels
         self.threshold = threshold
         self.duration = duration
@@ -235,6 +237,8 @@ class TrackerConfig(yaml.YAMLObject):
         self.axes = axes
         self.repeat_same = repeat_same
         self.repeat_different = repeat_different
+        self.enabled = enabled
+        self.alias = alias
 
 class Config(yaml.YAMLObject):
     def __init__(self):
@@ -254,7 +258,9 @@ class Config(yaml.YAMLObject):
                                     axes=[[True] * 6, [True] * 6],
                                     cue=f"/cue/{(i+1)*10}/start",
                                     repeat_different=500,
-                                    repeat_same=500))
+                                    repeat_same=500,
+                                    enabled=True,
+                                    alias=f"{(i+1)*10}"))
 
     def dump(self):
         return yaml.dump(self)

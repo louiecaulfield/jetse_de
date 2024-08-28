@@ -16,24 +16,25 @@ from packet import Packet, Config
 
 class Columns:
     INDEX       = 0
-    CH          = 1
-    THR_SLIDER  = 2
-    THR_SPIN    = 3
-    DUR_SLIDER  = 4
-    DUR_SPIN    = 5
-    AXES        = (6,7,8,9,10,11)
-    RATE        = 12
-    REPEAT_SAME = 13
-    REPEAT_DIFF = 14
-    CUE         = 15
+    ALIAS       = 1
+    CH          = 2
+    THR_SLIDER  = 3
+    THR_SPIN    = 4
+    DUR_SLIDER  = 5
+    DUR_SPIN    = 6
+    AXES        = tuple(range(7,13))
+    RATE        = 13
+    REPEAT_SAME = 14
+    REPEAT_DIFF = 15
+    CUE         = 16
 
 FLASH_TIMEOUT = 200
 class TrackerTable(QTableWidget):
     update_config = pyqtSignal(Config) # Channel ID, Config
     config_changed = pyqtSignal()
 
-    #               0         1           2       3       4       5                                   12       13           14       15
-    columns = ["tracker", "channel", "threshold", "", "duration", ""] + Packet.motion_keys_short + ["rate", "rpt same", "rpt diff", "cue"]
+    #               0        1         2           3       4       5       6                                   13           14       15        16
+    columns = ["tracker", "alias", "channel", "threshold", "", "duration", ""] + Packet.motion_keys_short + ["rate", "rpt same", "rpt diff", "cue"]
 
     n_trackers = 0
 
@@ -52,6 +53,7 @@ class TrackerTable(QTableWidget):
         for i, tracker in enumerate(config.trackers):
             self.addTracker(i, tracker)
             self.setSpan(i * 2, Columns.INDEX, 2, 1)
+            self.setSpan(i * 2, Columns.ALIAS, 2, 1)
             self.setSpan(i * 2, Columns.REPEAT_SAME, 2, 1)
             self.setSpan(i * 2, Columns.REPEAT_DIFF, 2, 1)
             self.setSpan(i * 2, Columns.CUE, 2, 1)
@@ -63,6 +65,7 @@ class TrackerTable(QTableWidget):
         self.resizeColumnsToContents()
 
         header = self.horizontalHeader()
+        header.setSectionResizeMode(Columns.ALIAS, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(Columns.THR_SLIDER, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(Columns.DUR_SLIDER, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(Columns.RATE, QHeaderView.ResizeMode.Stretch)
@@ -86,6 +89,10 @@ class TrackerTable(QTableWidget):
         offset  = row % 2
 
         match column:
+            case Columns.ALIAS:
+                # print(f"Alias changed for tracker {tracker_id} -> {arg}")
+                tracker.alias = arg
+
             case Columns.CH:
                 # print(f"Channel changed for tracker {tracker_id} -> {arg}")
                 tracker.channels[offset] = arg
@@ -140,6 +147,11 @@ class TrackerTable(QTableWidget):
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setStyleSheet("font-weight: bold; font-size: 14pt;")
         self.setCellWidget(row, 0, label)
+
+        alias = QLineEdit()
+        alias.setText(config.alias)
+        alias.textChanged.connect(self.table_value_changed)
+        self.setCellWidget(row, Columns.ALIAS, alias)
 
         for i in range(2):
             channel = QSpinBox()
