@@ -11,7 +11,8 @@ from typing import List
 class ConfigForm(QWidget):
     config_changed = pyqtSignal(object, str)
     serial_connect = pyqtSignal(str)
-    osc_connect = pyqtSignal(str, int)
+    connect_osc_tx = pyqtSignal(str, int)
+    connect_osc_rx = pyqtSignal(int)
     config_saved = pyqtSignal()
 
     def __init__(self, config, config_path):
@@ -63,10 +64,9 @@ class ConfigForm(QWidget):
         box.setLayout(form)
         layout.addWidget(box)
 
-        # OSC config
-        box = QGroupBox("OSC Server Config")
+        # OSC Sender config
+        box = QGroupBox("OSC Send Config")
         form_with_button = QVBoxLayout()
-
         form = QFormLayout()
 
         # OSC server IP
@@ -78,8 +78,8 @@ class ConfigForm(QWidget):
         item.textChanged.connect(self.update_config)
         form.addRow(self.tr(name), item)
 
-        # OSC port
-        tag, name = ("osc_port", "UDP port")
+        # OSC send port
+        tag, name = ("osc_send_port", "UDP send port")
         item = QSpinBox()
         item.setMinimum(1024)
         item.setMaximum(60000)
@@ -90,10 +90,35 @@ class ConfigForm(QWidget):
 
         form_with_button.addLayout(form)
 
-        # OSC connect button
-        self.btn_connect_osc = QPushButton("Connect")
-        self.btn_connect_osc.clicked.connect(self.osc_connect_clicked)
-        form_with_button.addWidget(self.btn_connect_osc)
+        # OSC sender connect button
+        self.btn_connect_osc_tx = QPushButton("Connect")
+        self.btn_connect_osc_tx.clicked.connect(self.osc_connect_tx_clicked)
+        form_with_button.addWidget(self.btn_connect_osc_tx)
+
+        box.setLayout(form_with_button)
+        layout.addWidget(box)
+
+        # OSC Receiver config
+        box = QGroupBox("OSC Receiver Config")
+        form_with_button = QVBoxLayout()
+        form = QFormLayout()
+
+        # OSC receive port
+        tag, name = ("osc_receive_port", "UDP receive port")
+        item = QSpinBox()
+        item.setMinimum(1024)
+        item.setMaximum(60000)
+        item.setValue(getattr(self.config, tag))
+        item.setObjectName(tag)
+        item.valueChanged.connect(self.update_config)
+        form.addRow(self.tr(name), item)
+
+        form_with_button.addLayout(form)
+
+        # OSC receiver connect button
+        self.btn_connect_osc_rx = QPushButton("Connect")
+        self.btn_connect_osc_rx.clicked.connect(self.osc_rx_connect_clicked)
+        form_with_button.addWidget(self.btn_connect_osc_rx)
 
         box.setLayout(form_with_button)
 
@@ -175,14 +200,24 @@ class ConfigForm(QWidget):
         self.btn_refresh.setEnabled(True)
         self.btn_connect_serial.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
 
-    def osc_connect_clicked(self):
-        self.btn_connect_osc.setEnabled(False)
-        self.btn_connect_osc.setText(self.btn_connect_osc.text() + "ing")
-        self.osc_connect.emit(self.config.osc_ip, self.config.osc_port)
+    def osc_tx_connect_clicked(self):
+        self.btn_connect_osc_tx.setEnabled(False)
+        self.btn_connect_osc_tx.setText(self.btn_connect_osc_tx.text() + "ing")
+        self.connect_osc_tx.emit(self.config.osc_ip, self.config.osc_send_port)
 
-    def osc_connected(self, connected: bool):
-        self.btn_connect_osc.setText("Disconnect" if connected else "Connect")
-        self.btn_connect_osc.setEnabled(True)
+    def osc_tx_connected(self, connected: bool):
+        self.btn_connect_osc_tx.setText("Disconnect" if connected else "Connect")
+        self.btn_connect_osc_tx.setEnabled(True)
+
+    def osc_rx_connect_clicked(self):
+        self.btn_connect_osc_rx.setEnabled(False)
+        self.btn_connect_osc_rx.setText(self.btn_connect_osc_rx.text() + "ing")
+        self.connect_osc_rx.emit(self.config.osc_receive_port)
+
+    def osc_rx_connected(self, connected: bool):
+        self.btn_connect_osc_rx.setText("Disconnect" if connected else "Connect")
+        self.btn_connect_osc_rx.setEnabled(True)
+
 
 class TrackerConfig(yaml.YAMLObject):
     def __init__(self,
@@ -204,7 +239,8 @@ class TrackerConfig(yaml.YAMLObject):
 class Config(yaml.YAMLObject):
     def __init__(self):
         self.osc_ip = "10.10.10.2"
-        self.osc_port = 5302
+        self.osc_send_port = 5302
+        self.osc_receive_port = 5305
         self.channels = [1,2]
         self.serial_port = ""
         self.autostart = False
