@@ -10,6 +10,7 @@ from packet import Packet
 from tracker import TrackerFilter, TrackerTable
 from rate import RateCounter
 from osc_client import OscClient
+from osc_server import OscServer
 
 import sys
 import os
@@ -18,7 +19,8 @@ from typing import List
 
 class MainWindow(QMainWindow):
     serial_connected = pyqtSignal(bool)
-    osc_connected = pyqtSignal(bool)
+    osc_tx_connected = pyqtSignal(bool)
+    osc_rx_connected = pyqtSignal(bool)
 
     def __init__(self, config_path: str):
         self.config = Config.load(config_path)
@@ -28,6 +30,7 @@ class MainWindow(QMainWindow):
         self.threadpool = QThreadPool()
         self.interface = None
         self.osc_client = None
+        self.osc_server = None
 
         self.setWindowTitle("Footstep tracker")
 
@@ -37,8 +40,13 @@ class MainWindow(QMainWindow):
         self.config_widget = ConfigForm(self.config, config_path)
         self.config_widget.serial_connect.connect(self.serial_connect)
         self.serial_connected.connect(self.config_widget.serial_connected)
-        self.config_widget.osc_connect.connect(self.osc_connect)
-        self.osc_connected.connect(self.config_widget.osc_connected)
+
+        self.config_widget.connect_osc_tx.connect(self.osc_tx_connect)
+        self.osc_tx_connected.connect(self.config_widget.osc_tx_connected)
+
+        self.config_widget.connect_osc_rx.connect(self.osc_rx_connect)
+        self.osc_rx_connected.connect(self.config_widget.osc_rx_connected)
+
         self.config_widget.config_changed.connect(self.config_changed)
         self.config_widget.config_saved.connect(self.config_saved)
 
@@ -100,24 +108,41 @@ class MainWindow(QMainWindow):
         self.interface = None
         self.serial_connected.emit(False)
 
-    def osc_connect(self):
+    def osc_tx_connect(self):
         if self.osc_client is None:
             self.osc_client = OscClient(self.config)
             self.config_widget.config_changed.connect(self.osc_client.update_config)
-            self.osc_client.signals.finished.connect(self.on_osc_disconnect)
+            self.osc_client.signals.finished.connect(self.on_osc_tx_disconnect)
             for f in self.trackers.filters:
                 f.cue.connect(self.osc_client.send_cue)
             self.threadpool.start(self.osc_client)
-            self.osc_connected.emit(True)
+            self.osc_tx_connected.emit(True)
 
         else:
             print("Stopping osc client")
             self.osc_client.stop()
 
-    def on_osc_disconnect(self):
-        print(f"OSC disconnected")
+    def on_osc_tx_disconnect(self):
+        print(f"OSC TX disconnected")
         self.osc_client = None
-        self.osc_connected.emit(False)
+        self.osc_tx_connected.emit(False)
+
+    def osc_rx_connect(self):
+        if self.osc_server is None:
+            self.osc_server = OscServer(self.config)
+            self.config_widget.config_changed.connect(self.osc_server.update_config)
+            self.osc_server.signals.finished.connect(self.on_osc_rx_disconnect)
+            self.threadpool.start(self.osc_server)
+            self.osc_rx_connected.emit(True)
+
+        else:
+            print("Stopping osc server")
+            self.osc_server.stop()
+
+    def on_osc_rx_disconnect(self):
+        print(f"OSC RX disconnected")
+        self.osc_server = None
+        self.osc_rx_connected.emit(False)
 
     def config_changed(self):
         self.config_dirty = True

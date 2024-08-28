@@ -12,7 +12,7 @@ class OscClient(QRunnable):
     def __init__(self, config: Config):
         super(OscClient, self).__init__()
         self.ip = config.osc_ip
-        self.port = config.osc_port
+        self.port = config.osc_send_port
         self.running = False
         self.signals = WorkerSignals()
         self.cues = queue.Queue()
@@ -46,8 +46,9 @@ class OscClient(QRunnable):
         self.cues.put(cue)
 
     def update_config(self, config: Config, item: str):
-        if not item in ["osc_ip", "osc_port"]:
+        if not item in ["osc_ip", "osc_send_port"]:
             return
+        print("CONFIG UPDATE for OSC CLIENT?")
 
     def stop(self):
         self.running = False

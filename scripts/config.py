@@ -92,7 +92,7 @@ class ConfigForm(QWidget):
 
         # OSC sender connect button
         self.btn_connect_osc_tx = QPushButton("Connect")
-        self.btn_connect_osc_tx.clicked.connect(self.osc_connect_tx_clicked)
+        self.btn_connect_osc_tx.clicked.connect(self.osc_tx_connect_clicked)
         form_with_button.addWidget(self.btn_connect_osc_tx)
 
         box.setLayout(form_with_button)
