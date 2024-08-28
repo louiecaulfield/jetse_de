@@ -163,6 +163,8 @@ class MainWindow(QMainWindow):
             self.interface.stop()
         if self.osc_client:
             self.osc_client.stop()
+        if self.osc_server:
+            self.osc_server.stop()
         event.accept()
 
     def sizeHint(self):

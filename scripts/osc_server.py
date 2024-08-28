@@ -10,7 +10,7 @@ from config import Config
 class OscServer(QRunnable):
     def __init__(self, config: Config):
         super(OscServer, self).__init__()
-        self.port = config.osc_receive_port
+        self.config = config
         self.running = False
         self.signals = WorkerSignals()
 
@@ -20,24 +20,28 @@ class OscServer(QRunnable):
         self.dispatcher = Dispatcher()
         self.dispatcher.map("/tracker/*", self.handler)
         self.dispatcher.set_default_handler(self.default_handler)
+        # self.signals.result.connect(self._do_stop_server)
 
-        self.server = ThreadingOSCUDPServer(('', self.port), self.dispatcher)
-        self.server.serve_forever()  # Blocks forever
-
+        while(self.running):
+            print(f"Starting OSC receiver on port {self.config.osc_receive_port}")
+            self.server = ThreadingOSCUDPServer(('', self.config.osc_receive_port), self.dispatcher)
+            self.server.serve_forever()  # Blocks forever
+            self.server.server_close()
+            self.server = None
+            print("OSC receiver stopped")
         try:
-            print("OSC SERVER STOPPED")
             self.signals.finished.emit()
         except RuntimeError:
-            print("OscClient not sending finished signal - quitting")
+            print("OscServer not sending finished signal - quitting")
 
     def update_config(self, config: Config, item: str):
-        if not item in ["osc_receive_port"]:
+        if item not in ["osc_receive_port"]:
             return
-        print("CONFIG UPDATE for OSC SERVER?")
+        self.server.shutdown()
 
     def stop(self):
+        self.running = False
         self.server.shutdown()
-        self.server.server_close()
 
     def handler(self, address, *arg):
         print(f"{address}: {args}")
