@@ -44,7 +44,7 @@ class OscServer(QRunnable):
         self.server.shutdown()
 
     def handler(self, address, *arg):
-        print(f"{address}: {args}")
+        print(f"{address}: {arg}")
 
-    def default_handler(self, addres, *arg):
-        print(f"DEFAULT {address}: {args}")
+    def default_handler(self, address, *arg):
+        print(f"DEFAULT {address}: {arg}")
