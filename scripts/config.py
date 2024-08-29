@@ -88,6 +88,13 @@ class ConfigForm(QWidget):
         item.valueChanged.connect(self.update_config)
         form.addRow(self.tr(name), item)
 
+        tag, name = ("osc_send_autostart", "auto-start")
+        item = QCheckBox()
+        item.setCheckState(Qt.CheckState.Checked if self.config.osc_send_autostart else Qt.CheckState.Unchecked)
+        item.setObjectName(tag)
+        item.stateChanged.connect(self.update_config)
+        form.addRow(self.tr(name), item)
+
         form_with_button.addLayout(form)
 
         # OSC sender connect button
@@ -111,6 +118,13 @@ class ConfigForm(QWidget):
         item.setValue(getattr(self.config, tag))
         item.setObjectName(tag)
         item.valueChanged.connect(self.update_config)
+        form.addRow(self.tr(name), item)
+
+        tag, name = ("osc_receive_autostart", "auto-start")
+        item = QCheckBox()
+        item.setCheckState(Qt.CheckState.Checked if self.config.osc_receive_autostart else Qt.CheckState.Unchecked)
+        item.setObjectName(tag)
+        item.stateChanged.connect(self.update_config)
         form.addRow(self.tr(name), item)
 
         form_with_button.addLayout(form)
@@ -245,6 +259,8 @@ class Config(yaml.YAMLObject):
         self.osc_ip = "10.10.10.2"
         self.osc_send_port = 5302
         self.osc_receive_port = 5305
+        self.osc_send_autostart = True
+        self.osc_receive_autostart = True
         self.channels = [1,2]
         self.serial_port = ""
         self.autostart = False
