@@ -74,21 +74,17 @@ class OscServer(QRunnable):
             print(f"Bad structure of address {address}")
             return
 
-        if str(int(tracker_pointer)) == tracker_pointer:
-            tracker_idx = int(tracker_pointer)
-            if tracker_idx > len(self.config.trackers):
-                print(f"OSC Server: tracker index {tracker_idx} out of range")
-                return
-        else:
-            for (i, t) in enumerate(self.config.trackers):
-                if t.alias == i:
-                    tracker_idx = i
+        try:
+            tracker = self.config.trackers[int(tracker_pointer)]
+        except ValueError:
+            for t in self.config.trackers:
+                if t.alias == tracker_pointer:
+                    tracker = t
                     break
             else:
-                print(f"OSC Server: tracker with alias {tracker_pointer} not found")
+                print(f"OSC Server: tracker with pointer {tracker_pointer} not found")
                 return
 
-        tracker = self.config.trackers[tracker_idx]
         if not hasattr(tracker, attribute_name):
             print(f"Unknown tracker config {attribute_name}")
             return
