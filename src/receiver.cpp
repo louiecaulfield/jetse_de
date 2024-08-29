@@ -29,7 +29,7 @@ void setup() {
 
   for(uint8_t i=0; i < N_RADIOS; i++) {
     radios[i].begin();
-    radios[i].setPALevel(RF24_PA_MIN);
+    radios[i].setPALevel(RF24_PA_MAX);
     radios[i].enableDynamicPayloads();
     radios[i].enableAckPayload();
     radios[i].setDataRate(RF24_1MBPS);
