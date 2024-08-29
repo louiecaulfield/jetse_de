@@ -161,7 +161,7 @@ class TrackerTable(QTableWidget):
 
     def addTracker(self, idx: int, config: TrackerConfig):
         row = idx * 2
-        label = QLabelDblClick(f"{idx}")
+        label = QLabelDblClick(f"{idx + 1}")
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setStyleSheet("font-weight: bold; font-size: 14pt;")
         self.setCellWidget(row, 0, label)
