@@ -164,7 +164,7 @@ class TrackerTable(QTableWidget):
         label = QLabelDblClick(f"{idx + 1}")
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setStyleSheet("font-weight: bold; font-size: 14pt;")
-        self.setCellWidget(row, 0, label)
+        self.setCellWidget(row, Columns.INDEX, label)
         label.doubleClicked.connect(self.labelDoubleClicked)
 
         alias = QLineEdit()
@@ -260,7 +260,7 @@ class TrackerTable(QTableWidget):
             filter.process(packet)
 
         for row in range(self.rowCount()):
-            if(self.cellWidget(row, 1).value() == packet.id):
+            if(self.cellWidget(row, Columns.CH).value() == packet.id):
                 self.updateRowChannelInfo(row, packet)
 
     def updateRowChannelInfo(self, row: int, packet: Packet):
