@@ -11,6 +11,7 @@
 9. `pip install -r requirements.txt`
 10. `./scripts/voetstappen.py`
 
+
 # Runnen (op macos)
 
 1. Open terminal
@@ -18,3 +19,23 @@
    `cd Documents/DE/voetstappen`
 3. `source .venv/bin/activate`
 4. `./scripts/voetstappen.py`
+
+# Updaten
+
+1. Open terminal
+2. Ga naar folder waar het is geinstalleer<br/>
+   `cd Documents/DE/voetstappen`
+3. `git pull`
+
+# OSC bediening
+```
+/tracker/<alias>/channels           <offset:int> <channel_nr:int>
+/tracker/<alias>/threshold          <offset:int> <threshold:int>
+/tracker/<alias>/duration           <offset:int> <duration:int>
+/tracker/<alias>/axes               <offset:int> <axis_nr:int> <enabled:bool>
+/tracker/<alias>/repeat_same        <repeat_interval:int>
+/tracker/<alias>/repeat_different   <repeat_interval:int>
+/tracker/<alias>/enabled            <enabled:bool>
+/tracker/<alias>/alias              <alias:str>
+/tracker/<alias>/cue                <cue:str>
+```
