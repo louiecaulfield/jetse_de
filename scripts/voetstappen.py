@@ -131,6 +131,7 @@ class MainWindow(QMainWindow):
         if self.osc_server is None:
             self.osc_server = OscServer(self.config)
             self.config_widget.config_changed.connect(self.osc_server.update_config)
+            self.osc_server.signals.result.connect(self.trackers.update_table_from_config)
             self.osc_server.signals.finished.connect(self.on_osc_rx_disconnect)
             self.threadpool.start(self.osc_server)
             self.osc_rx_connected.emit(True)
