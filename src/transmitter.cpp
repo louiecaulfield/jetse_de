@@ -92,7 +92,7 @@ void setup(void) {
   radio.setPALevel(RF24_PA_MAX);
   radio.enableDynamicPayloads();
   radio.enableAckPayload();
-  radio.setDataRate(RF24_250KBPS);
+  radio.setDataRate(RF24_1MBPS);
   radio.setChannel(frequency_for(CHANNEL));
 
   radio.openWritingPipe(address_for(CHANNEL));
