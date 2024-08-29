@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QBoxLayout
 from PyQt6.QtWidgets import QLabel, QSpinBox, QSlider, QLineEdit, QCheckBox, QWidget
 from PyQt6.QtWidgets import QTableWidget, QHeaderView
-from PyQt6.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot, QTimer, Qt
+from PyQt6.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot, QTimer, Qt, QEvent
 from PyQt6.QtGui import QPalette
 
 import time
@@ -28,7 +28,23 @@ class Columns:
     REPEAT_DIFF = 15
     CUE         = 16
 
+class Colors:
+    GOOD        = "b6ef8e"
+    WARN        = "efd042"
+    BAD         = "ef8e8e"
+    HIGHLIGHT   = "ef5bd4"
+    ENABLED     = GOOD
+    DISABLED    = BAD
+
 FLASH_TIMEOUT = 200
+
+class QLabelDblClick(QLabel):
+    doubleClicked = pyqtSignal(QEvent)
+    def mouseDoubleClickEvent(self, event: QEvent):
+        self.doubleClicked.emit(event)
+        event.accept()
+
+
 class TrackerTable(QTableWidget):
     update_config = pyqtSignal(Config) # Channel ID, Config
     config_changed = pyqtSignal()
@@ -73,16 +89,18 @@ class TrackerTable(QTableWidget):
         self.packets = {}
         self.flash_timers : Dict[QWidget, QTimer] = {}
 
-    def table_value_changed(self, arg):
+    def find_table_position(self, widget):
         for row in range(self.rowCount()):
             for column in range(self.columnCount()):
-                if self.cellWidget(row, column) == self.sender():
-                    break
-            else:
-                continue
-            break
-        else:
-            raise Exception("Failed to find widget for change in value by sender")
+                if self.cellWidget(row, column) == widget:
+                    return (row, column)
+        return (-1, -1)
+
+
+    def table_value_changed(self, arg):
+        (row, column) = self.find_table_position(self.sender())
+        if row < 0:
+            return
 
         tracker_id = row // 2
         tracker = self.config.trackers[tracker_id]
@@ -143,10 +161,11 @@ class TrackerTable(QTableWidget):
 
     def addTracker(self, idx: int, config: TrackerConfig):
         row = idx * 2
-        label = QLabel(f"{idx}")
+        label = QLabelDblClick(f"{idx}")
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setStyleSheet("font-weight: bold; font-size: 14pt;")
         self.setCellWidget(row, 0, label)
+        label.doubleClicked.connect(self.labelDoubleClicked)
 
         alias = QLineEdit()
         alias.setText(config.alias)
@@ -220,19 +239,21 @@ class TrackerTable(QTableWidget):
         repeat_same_spin.setMaximum(2000)
         repeat_same_spin.setValue(config.repeat_same)
         repeat_same_spin.valueChanged.connect(self.table_value_changed)
-        self.setCellWidget(row + i, Columns.REPEAT_SAME, repeat_same_spin)
+        self.setCellWidget(row, Columns.REPEAT_SAME, repeat_same_spin)
 
         repeat_diff_spin = QSpinBox()
         repeat_diff_spin.setMinimum(0)
         repeat_diff_spin.setMaximum(2000)
         repeat_diff_spin.setValue(config.repeat_different)
         repeat_diff_spin.valueChanged.connect(self.table_value_changed)
-        self.setCellWidget(row + i, Columns.REPEAT_DIFF, repeat_diff_spin)
+        self.setCellWidget(row, Columns.REPEAT_DIFF, repeat_diff_spin)
 
         self.cue = QLineEdit()
         self.cue.setText(config.cue)
         self.cue.textChanged.connect(self.table_value_changed)
-        self.setCellWidget(row + i, Columns.CUE, self.cue)
+        self.setCellWidget(row, Columns.CUE, self.cue)
+
+        self.visualise_tracker_enabled(idx)
 
     def process(self, packet: Packet):
         for filter in self.filters:
@@ -263,18 +284,94 @@ class TrackerTable(QTableWidget):
                 if motion:
                     self.flash(self.cellWidget(row, Columns.AXES[axis]))
 
+    def labelDoubleClicked(self):
+        (row, _) = self.find_table_position(self.sender())
+        self.config.trackers[row // 2].enabled = not self.config.trackers[row // 2].enabled
+        self.visualise_tracker_enabled(row // 2)
+
+    def visualise_tracker_enabled(self, tracker_idx):
+        cue: QLineEdit = self.cellWidget(tracker_idx * 2, Columns.CUE)
+        if self.config.trackers[tracker_idx].enabled:
+            cue.setStyleSheet(f"background-color: #{Colors.ENABLED}")
+        else:
+            cue.setStyleSheet(f"background-color: #{Colors.DISABLED}")
+
+
+    @pyqtSlot()
+    def update_table_from_config(self):
+        for (i, tracker) in enumerate(self.config.trackers):
+            row = i * 2
+
+            self.visualise_tracker_enabled(i)
+
+            alias: QLineEdit = self.cellWidget(row, Columns.ALIAS)
+            if alias.text() != tracker.alias:
+                alias.setText(tracker.alias)
+
+            repeat_same_spin: QSpinBox = self.cellWidget(row, Columns.REPEAT_SAME)
+            if repeat_same_spin.value() != tracker.repeat_same:
+                repeat_same_spin.setValue(tracker.repeat_same)
+
+            repeat_diff_spin: QSpinBox = self.cellWidget(row, Columns.REPEAT_DIFF)
+            if repeat_diff_spin.value() != tracker.repeat_different:
+                repeat_diff_spin.setValue(tracker.repeat_different)
+
+            cue: QLineEdit = self.cellWidget(row, Columns.CUE)
+            if cue.text() != tracker.cue:
+                cue.setText(tracker.cue)
+
+            for j in range(2):
+                row = i * 2 + j
+                emit_update = False
+
+                channel: QSpinBox = self.cellWidget(row, Columns.CH)
+                if channel.value() != tracker.channels[j]:
+                    emit_update = True
+                    channel.setValue(tracker.channels[j])
+
+                thresh_slider: QSlider = self.cellWidget(row, Columns.THR_SLIDER)
+                if thresh_slider.value() != tracker.threshold[j]:
+                    emit_update = True
+                    thresh_slider.setValue(tracker.threshold[j])
+
+                thresh_spin: QSpinBox = self.cellWidget(row, Columns.THR_SPIN)
+                if thresh_spin.value() != tracker.threshold[j]:
+                    emit_update = True
+                    thresh_spin.setValue(tracker.threshold[j])
+
+                duration_slider: QSlider = self.cellWidget(row, Columns.DUR_SLIDER)
+                if duration_slider.value() != tracker.duration[j]:
+                    emit_update = True
+                    duration_slider.setValue(tracker.duration[j])
+
+                duration_spin: QSpinBox = self.cellWidget(row, Columns.DUR_SPIN)
+                if duration_spin.value() != tracker.duration[j]:
+                    emit_update = True
+                    duration_spin.setValue(tracker.duration[j])
+
+                for ax in range(len(Columns.AXES)):
+                    col = Columns.AXES[ax]
+                    axis_checkbox: QCheckBox = self.cellWidget(row, col)
+                    if axis_checkbox.isChecked() != tracker.axes[j][ax]:
+                        axis_checkbox.setChecked(tracker.axes[j][ax])
+
+                if emit_update:
+                    print(f"Emitting update for tracker {tracker.alias}[{i}]")
+                    self.update_config.emit(Config(tracker.channels[j], tracker.threshold[j], tracker.duration[j]))
+
+
     def update_rates(self):
         for row in range(self.rowCount()):
             rate = self.rates[row]
             rate_widget : QLabel = self.cellWidget(row, Columns.RATE)
             if rate.older_than(1000):
-                rate_widget.setStyleSheet("background-color: #ef8e8e")
+                rate_widget.setStyleSheet(f"background-color: #{Colors.BAD}")
                 rate_widget.setText(f"N/A")
                 rate.reset()
             elif rate.older_than(400):
-                rate_widget.setStyleSheet("background-color: #efd042")
+                rate_widget.setStyleSheet(f"background-color: #{Colors.WARN}")
             else:
-                rate_widget.setStyleSheet("background-color: #b6ef8e")
+                rate_widget.setStyleSheet(f"background-color: #{Colors.GOOD}")
                 rate_widget.setText(f"{rate():5.2f} Hz")
 
     def flash(self, widget: QWidget):
@@ -292,7 +389,7 @@ class TrackerTable(QTableWidget):
         timer.start()
         self.flash_timers[widget] = (timer, stylesheet)
 
-        widget.setStyleSheet(stylesheet + "background-color:red;")
+        widget.setStyleSheet(stylesheet + f"background-color:#{Colors.HIGHLIGHT};")
 
     def flash_restore(self, widget: QWidget):
         widget.setStyleSheet(self.flash_timers[widget][1])
