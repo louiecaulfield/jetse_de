@@ -74,6 +74,13 @@ class MainWindow(QMainWindow):
         if self.config.autostart:
             self.config_widget.btn_connect_serial.click()
 
+        if self.config.osc_send_autostart:
+            self.config_widget.btn_connect_osc_tx.click()
+
+        if self.config.osc_receive_autostart:
+            self.config_widget.btn_connect_osc_rx.click()
+
+
     def update_status(self):
         rates = {}
         if self.interface:
