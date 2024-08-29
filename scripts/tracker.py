@@ -429,6 +429,10 @@ class TrackerFilter(QObject):
     def process(self, packet: Packet):
         if packet.id not in self.config.channels:
             return
+
+        if not self.config.enabled:
+            return
+
         offset = self.config.channels.index(packet.id)
 
         packet_time = packet.host_time - self.start_time
