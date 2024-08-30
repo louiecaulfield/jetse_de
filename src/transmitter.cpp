@@ -4,7 +4,7 @@
 #include <packet.h>
 
 #ifndef CHANNEL
-#define CHANNEL 14
+#define CHANNEL 1
 #endif
 
 #define POWERSAVE true
@@ -17,7 +17,7 @@ void update_config(conf_t* config);
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
-RF24 radio(10, 9); //CE, CSN
+RF24 radio(RADIO_CE_CS);
 
 #include <I2Cdev.h>
 #include <MPU6050.h>

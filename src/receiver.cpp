@@ -6,15 +6,13 @@
 
 #include <packet.h>
 
-RF24 radios[] = {
-  RF24(4, 5),
-  RF24(6, 7),
-  RF24(8, 9),
-};
+
+uint8_t radios_ce_cs[] = { RADIOS_CE_CS };
+#define N_RADIOS ( sizeof(radios_ce_cs) / sizeof(radios_ce_cs[0]) / 2 )
+RF24 radios[N_RADIOS];
 
 packet_t packet = {};
 
-#define N_RADIOS (sizeof(radios)/sizeof(radios[0]))
 
 #define CHANNELS (N_RADIOS * PIPES_PER_RADIO)
 conf_t config[CHANNELS];
@@ -28,6 +26,9 @@ void setup() {
     delay(10);
 
   for(uint8_t i=0; i < N_RADIOS; i++) {
+    log_info_fmt("Initializing radio %d with pins CE/CS %d/%d", i, radios_ce_cs[i*2], radios_ce_cs[i*2+1]);
+
+    radios[i] = RF24(radios_ce_cs[i*2], radios_ce_cs[i*2+1]);
     radios[i].begin();
     radios[i].setPALevel(RF24_PA_MAX);
     radios[i].enableDynamicPayloads();
@@ -149,7 +150,7 @@ void loop() {
       if(pipe < 0 || pipe >= CHANNELS) {
         log_debug_fmt("Invalid channel id %d for pipe with address ???", packet.id);
       }
-  #ifndef SERIAL_DEBUG
+  #ifndef SERIAL_DEBUG_TRACKER
       serial_transmit((uint8_t *)&packet, sizeof(packet));
   #endif
       send_config(pipe);
