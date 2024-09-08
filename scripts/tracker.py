@@ -65,6 +65,7 @@ class TrackerTable(QTableWidget):
         self.duration_sliders   = {}
         self.duration_spinners  = {}
         self.freq_labels        = {}
+        self.last_chan_freqs    = {}
         self.last_packet_times  = {}
 
         self.filters = []
@@ -298,7 +299,10 @@ class TrackerTable(QTableWidget):
             self.duration_spinners[row].setValue(packet.duration)
             self.duration_spinners[row].blockSignals(False)
 
-        self.freq_labels[row].setText(f"{packet.frequency + 2400} MHz")
+        if(packet.frequency != self.last_chan_freqs.get(packet.id, -1)):
+            self.last_chan_freqs[packet.id] = packet.frequency
+            self.freq_labels[row].setText(f"{packet.frequency + 2400} MHz")
+            self.flash(self.freq_labels[row])
 
         last_packet = self.packets.get(packet.id, None)
         if last_packet is None or packet.motion_time != last_packet.motion_time:
