@@ -9,16 +9,17 @@ PacketSerial packet_serial;
 #define log(level, msg) (serial_tx_log(level, msg))
 #include <packet.h>
 
-#ifndef RECEIVER_ID
-#error No receiver ID defined <RECEIVER_ID>
+#ifndef RECEIVER_OFFSET
+#error No receiver offset defined <RECEIVER_OFFSET>
 #endif
 
-RF24 radio(RADIO_CE_CS);
+uint8_t radios_ce_cs[] = { RADIOS_CE_CS };
+#define N_RADIOS ( sizeof(radios_ce_cs) / sizeof(radios_ce_cs[0]) / 2 )
+RF24 radios[N_RADIOS];
 
 packet_channel_event_t packet_event = {
   .magic = PACKET_MAGIC,
   .ptype = PACKET_TYPE_CHANNEL_EVENT,
-  .freq  = frequency_for_receiver(RECEIVER_ID)
 };
 packet_channel_config_req_t packet_cfg_req = {
   .magic = PACKET_MAGIC,
@@ -56,8 +57,9 @@ void serial_tx_log(const char* level, const char* msg) {
   packet_serial.send((uint8_t *)&packet_log, checksum - (uint8_t*)&packet_log + 1);
 }
 
-void serial_tx_chan_event() {
+void serial_tx_chan_event(uint8_t freq) {
   /* Simple checksum */
+  packet_event.freq = freq;
   packet_event.checksum = 0;
   for(unsigned int i=0; i < sizeof(packet_event) - 1; i++) {
     packet_event.checksum += ((uint8_t *)&packet_event)[i];
@@ -144,6 +146,10 @@ void setup() {
     channel_config[ch] = {.threshold=255, .duration=255};
   }
 
+  for(uint8_t i = 0; i < N_PIPES; i++) {
+    update_pipe[i] = 0;
+  }
+
   /* Ensure all pipe configs are received before starting radio */
   int missing_config_channel = get_missing_config();
   while(missing_config_channel >= 0) {
@@ -159,59 +165,66 @@ void setup() {
   }
   log_debug("All pipes configured");
 
-  log_debug("Initializing radio");
-  radio.begin();
-  radio.setPALevel(RF24_PA_MAX);
-  radio.enableDynamicPayloads();
-  radio.enableAckPayload();
-  radio.setDataRate(RF24_1MBPS);
-  radio.setChannel(frequency_for_receiver(RECEIVER_ID));
+  for(uint8_t i=0; i < N_RADIOS; i++) {
+    log_debug_fmt("Initializing radio %d with pins CE/CS %d/%d", i, radios_ce_cs[i*2], radios_ce_cs[i*2+1]);
 
-  for(uint8_t i = 0; i < N_PIPES; i++) {
-    update_pipe[i] = 0;
-    radio.openReadingPipe(i, PIPE_ADDRESS_BASE + i);
+    radios[i] = RF24(radios_ce_cs[i*2], radios_ce_cs[i*2+1]);
+    radios[i].begin();
+    radios[i].setPALevel(RF24_PA_MAX);
+    radios[i].enableDynamicPayloads();
+    radios[i].enableAckPayload();
+    radios[i].setDataRate(RF24_1MBPS);
+    radios[i].setChannel(frequency_for_receiver(RECEIVER_OFFSET + i));
+
+    for(uint8_t j = 0; j < N_PIPES; j++) {
+      radios[i].openReadingPipe(j, PIPE_ADDRESS_BASE + j);
+      log_debug_fmt("Opened reading pipe %d with addr %d on radio %d", j, PIPE_ADDRESS_BASE + j, i);
+    }
+
   }
-
-  radio.startListening();
+  for(RF24 radio: radios)
+    radio.startListening();
 }
 
 void loop() {
-  if (radio.available()) {
-    radio.read(&(packet_event.payload), sizeof(packet_event.payload));
-    log_debug_fmt("[%10lu] [%d] [ACC] %8d / %8d / %8d (%02X@%10lu ms) [%d]",
-      packet_event.payload.time,
-      packet_event.payload.id,
-      packet_event.payload.x, packet_event.payload.y, packet_event.payload.z,
-      packet_event.payload.motion,
-      packet_event.payload.time_last_motion,
-      sizeof(packet_event.payload));
+  for(uint8_t i=0; i < N_RADIOS; i++) {
+    if (radios[i].available()) {
+      radios[i].read(&(packet_event.payload), sizeof(packet_event.payload));
+      log_debug_fmt("[%10lu] [%d] [ACC] %8d / %8d / %8d (%02X@%10lu ms) [%d]",
+        packet_event.payload.time,
+        packet_event.payload.id,
+        packet_event.payload.x, packet_event.payload.y, packet_event.payload.z,
+        packet_event.payload.motion,
+        packet_event.payload.time_last_motion,
+        sizeof(packet_event.payload));
 
-    uint8_t channel = packet_event.payload.id;
-    if(channel >= N_CHANNELS)
-      goto next;
+      uint8_t channel = packet_event.payload.id;
+      if(channel >= N_CHANNELS)
+        continue;
 
-    if(channel_config[channel].duration  != packet_event.payload.cfg.duration ||
-        channel_config[channel].threshold != packet_event.payload.cfg.threshold)
-    {
-      bitSet(update_pipe[pipe_for_channel(channel)], channel % CHANNELS_PER_PIPE);
-      // log_debug_fmt("Setting config bit for pipe %d at index %d",pipe_for_channel(channel), channel % CHANNELS_PER_PIPE);
-    } else {
-      bitClear(update_pipe[pipe_for_channel(channel)], channel % CHANNELS_PER_PIPE);
-      // log_debug_fmt("Clearing config bit for pipe %d at index %d",pipe_for_channel(channel), channel % CHANNELS_PER_PIPE);
-      serial_tx_chan_event();
-    }
+      if(channel_config[channel].duration  != packet_event.payload.cfg.duration ||
+          channel_config[channel].threshold != packet_event.payload.cfg.threshold)
+      {
+        bitSet(update_pipe[pipe_for_channel(channel)], channel % CHANNELS_PER_PIPE);
+        // log_debug_fmt("Setting config bit for pipe %d at index %d",pipe_for_channel(channel), channel % CHANNELS_PER_PIPE);
+      } else {
+        bitClear(update_pipe[pipe_for_channel(channel)], channel % CHANNELS_PER_PIPE);
+        // log_debug_fmt("Clearing config bit for pipe %d at index %d",pipe_for_channel(channel), channel % CHANNELS_PER_PIPE);
+        serial_tx_chan_event(frequency_for_receiver(RECEIVER_OFFSET + i));
+      }
 
-    if(update_pipe[pipe_for_channel(channel)])
-    {
-      log_debug_fmt("Writing ACK payload on pipe %d with config state %02X (%d bytes)",
-                      pipe_for_channel(channel),
-                      update_pipe[pipe_for_channel(channel)],
-                      sizeof(pipe_config_t));
-      radio.writeAckPayload(pipe_for_channel(channel),
-                            &(channel_config[pipe_for_channel(channel) * CHANNELS_PER_PIPE]),
-                            sizeof(pipe_config_t));
+      if(update_pipe[pipe_for_channel(channel)])
+      {
+        log_debug_fmt("Writing ACK payload on pipe %d with config state %02X (%d bytes)",
+                        pipe_for_channel(channel),
+                        update_pipe[pipe_for_channel(channel)],
+                        sizeof(pipe_config_t));
+        radios[i].writeAckPayload(pipe_for_channel(channel),
+                              &(channel_config[pipe_for_channel(channel) * CHANNELS_PER_PIPE]),
+                              sizeof(pipe_config_t));
+      }
     }
   }
-next:
+
   packet_serial.update();
 }
