@@ -30,7 +30,7 @@ class ConfigForm(QWidget):
 
         layout_connect = QHBoxLayout()
 
-        self.btn_refresh = QPushButton(QIcon.fromTheme("view-refresh"), None)
+        self.btn_refresh = QPushButton(QIcon.fromTheme("view-refresh"), "Refresh")
         # self.btn_refresh.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
         self.btn_refresh.clicked.connect(self.serial_refresh_ports)
         layout_connect.addWidget(self.btn_refresh)
@@ -48,7 +48,7 @@ class ConfigForm(QWidget):
             self.combo_serial.append(item)
 
         # Connect button
-        self.btn_connect_serial = QPushButton(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay), None)
+        self.btn_connect_serial = QPushButton(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay), "Connect")
         self.btn_connect_serial.clicked.connect(self.serial_connect_clicked)
         self.btn_connect_serial.setEnabled(False)
         form.addRow(self.tr("connect"),self.btn_connect_serial)
@@ -131,7 +131,7 @@ class ConfigForm(QWidget):
         form_with_button.addLayout(form)
 
         # OSC receiver connect button
-        self.btn_connect_osc_rx = QPushButton("Connect")
+        self.btn_connect_osc_rx = QPushButton("Start server")
         self.btn_connect_osc_rx.clicked.connect(self.osc_rx_connect_clicked)
         form_with_button.addWidget(self.btn_connect_osc_rx)
 
@@ -159,6 +159,8 @@ class ConfigForm(QWidget):
             setattr(self.config, tag, item.text())
         elif isinstance(item, QComboBox):
             setattr(self.config, tag, item.currentData())
+            if item.currentData() is None:
+                item.setCurrentIndex(-1)
         elif isinstance(item, QCheckBox):
             state = item.checkState() == Qt.CheckState.Checked
             setattr(self.config, tag, state)
@@ -214,6 +216,7 @@ class ConfigForm(QWidget):
         [combo.setEnabled(False) for combo in self.combo_serial]
         self.btn_refresh.setEnabled(False)
         self.btn_connect_serial.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaStop))
+        self.btn_connect_serial.setText("Disconnect")
         self.serial_connect.emit([combo.currentData() for combo in self.combo_serial])
 
     def serial_connected(self, connected: bool):
@@ -224,6 +227,7 @@ class ConfigForm(QWidget):
         [combo.setEnabled(True) for combo in self.combo_serial]
         self.btn_refresh.setEnabled(True)
         self.btn_connect_serial.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+        self.btn_connect_serial.setText("Connect")
 
     def osc_tx_connect_clicked(self):
         self.btn_connect_osc_tx.setEnabled(False)
@@ -236,11 +240,10 @@ class ConfigForm(QWidget):
 
     def osc_rx_connect_clicked(self):
         self.btn_connect_osc_rx.setEnabled(False)
-        self.btn_connect_osc_rx.setText(self.btn_connect_osc_rx.text() + "ing")
         self.connect_osc_rx.emit(self.config.osc_receive_port)
 
     def osc_rx_connected(self, connected: bool):
-        self.btn_connect_osc_rx.setText("Disconnect" if connected else "Connect")
+        self.btn_connect_osc_rx.setText("Stop server" if connected else "Start server")
         self.btn_connect_osc_rx.setEnabled(True)
 
 
