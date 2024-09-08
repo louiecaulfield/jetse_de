@@ -65,6 +65,7 @@ class TrackerTable(QTableWidget):
         self.duration_sliders   = {}
         self.duration_spinners  = {}
         self.freq_labels        = {}
+        self.last_packet_times  = {}
 
         self.filters = []
         self.rates = {}
@@ -270,6 +271,11 @@ class TrackerTable(QTableWidget):
     def process(self, packet: ChannelEventPacket):
         if not isinstance(packet, ChannelEventPacket):
             return
+
+        if(packet.sensor_time == self.last_packet_times.get(packet.id, 0)):
+            return
+
+        self.last_packet_times[packet.id] = packet.sensor_time
 
         for filter in self.filters:
             filter.process(packet)
