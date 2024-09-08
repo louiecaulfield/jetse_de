@@ -2,49 +2,95 @@ from PyQt6.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot
 import sys, traceback
 from worker import WorkerSignals
 
-from packet import Packet, Config
+from packet import *
 from queue import Queue
 from rate import RateCounter
 import serial
+from cobs import cobs
+from time import sleep
 
 class SensorInterface(QRunnable):
-    def __init__(self, port: str):
+    def __init__(self, port: str, n_channels: int):
         super(SensorInterface, self).__init__()
         self.rate = RateCounter(10)
         self.portname = port
         self.running = False
         self.signals = WorkerSignals()
         self.config_q = Queue()
-        self.debug = False
+
+        self.channel_config = [ChannelConfig(i, 255,255) for i in range(n_channels)]
+        self.channel_config_dirty = [True for i in range(n_channels)]
+
+    def receive(self, timeout=None):
+        self.port.timeout = timeout
+        buf_enc = self.port.read_until(expected=b'\x00')
+        try:
+            buf = cobs.decode(buf_enc[:-1])
+            return packet_from_bytes(buf)
+
+        except cobs.DecodeError as e:
+            print(e)
+            return None
+
+    def send_config(self, channel):
+        config = self.channel_config[channel]
+        buf = cobs.encode(config.packet_bytes()) + b'\x00'
+        for tries in range(20):
+            self.port.write(buf)
+
+            # Receiver should send back packet by means of ACK
+            ack = self.receive(1000)
+            if config == ack:
+                self.channel_config_dirty[channel] = False
+                return
+
+        raise Exception(f"Failed to get ACK on config for channel {channel}")
+
+
+    def get_config_from_q(self):
+        while not self.config_q.empty():
+            cfg = self.config_q.get()
+            self.channel_config[cfg.channel] = cfg
+            self.channel_config_dirty[cfg.channel] = True
+
+    def send_dirty_config(self):
+        for (ch, dirty) in enumerate(self.channel_config_dirty):
+            if not dirty:
+                continue
+
+            self.send_config(ch)
 
     @pyqtSlot()
     def run(self):
-        last_packet = Packet.random(1, [100,100,100])
         try:
             self.running = True
-            self.port = serial.Serial(self.portname, 115200)
+            self.port = serial.Serial(self.portname, 115200, dsrdtr=True)
+            self.port.timeout = None
             self.port.close()
             self.port.open()
-            self.sync()
+            self.port.dtr = False
+            sleep(0.1)
+            self.port.dtr = True
 
             while(self.running):
-                if(self.debug):
-                    print(self.port.readline())
-                else:
-                    packet = Packet.from_bytes(self.port.read(Packet.size))
-                    if packet is None:
-                        if not self.running:
-                            break
-                        self.sync()
-                    else:
+                packet = self.receive(10)
+                match packet:
+                    case ChannelEventPacket():
                         self.rate.event()
                         self.signals.result.emit(packet)
+                    case ChannelConfigRequestPacket():
+                        self.get_config_from_q()
+                        self.send_config(packet.channel)
+                        continue
+                    case LogPacket():
+                        self.signals.result.emit(packet)
+                        continue
+                    case _:
+                        print(f"Received garbage on {self.portname}")
+                        continue
 
-                if not self.config_q.empty():
-                    cfg = self.config_q.get()
-                    # print(f"Sending config {cfg}")
-                    self.port.write(cfg.bytes())
-
+                self.get_config_from_q()
+                self.send_dirty_config()
 
         except:
             if self.running:
@@ -52,36 +98,15 @@ class SensorInterface(QRunnable):
                 exctype, value = sys.exc_info()[:2]
                 self.signals.error.emit((exctype, value, traceback.format_exc()))
         finally:
+            self.port.close()
             try:
                 self.signals.finished.emit()
             except RuntimeError:
                 print("SensorInterface not sending finished signal - quitting")
 
-    def sync(self):
-        if self.debug:
-            return
-        tries = 0
-        magic = 0x00
-        packet = None
-        while packet is None and tries < 10:
-            magic_tries = 0
-            while magic != 0xBAE1 and magic_tries < 100:
-                byte = self.port.read(1)
-                if len(byte) != 1:
-                    raise Exception("Couldn't read byte")
-                magic = ((magic << 8) | byte[0]) & 0xFFFF
-                magic_tries += 1
-            if magic != 0xBAE1:
-                raise Exception("Failed to sync to serial port, magic not found")
-            packet = Packet.from_bytes(bytes([0xBA, 0xE1]) + self.port.read(Packet.size - 2))
-            tries += 1
-        if packet is None:
-            raise Exception(f"Failed to sync to serial port after {tries} tries")
-        print(f"Sync done after {tries} attempt(s)")
-
     def stop(self):
         self.running = False
         self.port.cancel_read()
 
-    def update_config(self, config: Config):
+    def update_config(self, config:  ChannelConfig):
         self.config_q.put(config)

@@ -10,7 +10,7 @@ from typing import List
 
 class ConfigForm(QWidget):
     config_changed = pyqtSignal(object, str)
-    serial_connect = pyqtSignal(str)
+    serial_connect = pyqtSignal(list)
     connect_osc_tx = pyqtSignal(str, int)
     connect_osc_rx = pyqtSignal(int)
     config_saved = pyqtSignal()
@@ -25,7 +25,7 @@ class ConfigForm(QWidget):
         layout = QHBoxLayout()
 
         # General config
-        box = QGroupBox("Connection")
+        box = QGroupBox("Tracker receiver connection")
         form = QFormLayout()
 
         layout_connect = QHBoxLayout()
@@ -34,24 +34,25 @@ class ConfigForm(QWidget):
         # self.btn_refresh.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
         self.btn_refresh.clicked.connect(self.serial_refresh_ports)
         layout_connect.addWidget(self.btn_refresh)
+        form.addRow(self.tr("port"), layout_connect)
 
         # Serial port combo box
-        tag, name = ("serial_port", "Serial port")
-        item = QComboBox()
-        item.setPlaceholderText(name)
-        item.setObjectName(tag)
-        item.currentIndexChanged.connect(self.update_config)
-        layout_connect.addWidget(item)
-        self.combo_serial = item
+        self.combo_serial = []
+        for i in range(2):
+            tag, name = (f"serial_port_{i}", f"Serial port {i}")
+            item = QComboBox()
+            item.setPlaceholderText(name)
+            item.setObjectName(tag)
+            item.currentIndexChanged.connect(self.update_config)
+            form.addRow(self.tr(name), item)
+            self.combo_serial.append(item)
 
+        # Connect button
         self.btn_connect_serial = QPushButton(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay), None)
         self.btn_connect_serial.clicked.connect(self.serial_connect_clicked)
         self.btn_connect_serial.setEnabled(False)
-        layout_connect.addWidget(self.btn_connect_serial)
-
+        form.addRow(self.tr("connect"),self.btn_connect_serial)
         self.serial_refresh_ports()
-
-        form.addRow(self.tr("port"), layout_connect)
 
         # Auto-start
         tag, name = ("autostart", "auto-start")
@@ -172,9 +173,14 @@ class ConfigForm(QWidget):
         else:
             raise AttributeError(f"No config handler for {tag} / {item}")
 
-        match tag:
-            case "serial_port":
-                self.btn_connect_serial.setEnabled(item.currentData() is not None)
+        if tag.startswith("serial_port"):
+            for combo in self.combo_serial:
+                if combo == item:
+                    continue
+                if combo.currentData() == item.currentData():
+                    combo.setCurrentIndex(-1)
+
+            self.btn_connect_serial.setEnabled(any([c.currentData() is not None for c in self.combo_serial]))
 
         self.config_changed.emit(self.config, tag)
 
@@ -187,30 +193,35 @@ class ConfigForm(QWidget):
         self.config_saved.emit()
 
     def serial_refresh_ports(self):
-        currentPort = self.combo_serial.currentData()
-        self.combo_serial.clear()
+        ports = [("", None)]
         for i, p in enumerate(comports()):
             if not p.hwid.startswith("USB"):
                 continue
-            self.combo_serial.addItem(f"{p.name} - {p.description}", p.device)
+            ports.append((f"{p.name} - {p.description}", p.device))
 
-        currentIndex = self.combo_serial.findData(currentPort)
-        if currentIndex == -1:
-            currentIndex = self.combo_serial.findData(self.config.serial_port)
-        self.combo_serial.setCurrentIndex(currentIndex)
+        for (i, combo) in enumerate(self.combo_serial):
+            currentPort = combo.currentData()
+            combo.clear()
+            for (name, device) in ports:
+                combo.addItem(name, device)
+
+            currentIndex = combo.findData(currentPort)
+            if currentPort is None or currentIndex == -1:
+                currentIndex = combo.findData(getattr(self.config, f"serial_port_{i}"))
+            combo.setCurrentIndex(currentIndex)
 
     def serial_connect_clicked(self):
-        self.combo_serial.setEnabled(False)
+        [combo.setEnabled(False) for combo in self.combo_serial]
         self.btn_refresh.setEnabled(False)
         self.btn_connect_serial.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaStop))
-        self.serial_connect.emit(self.config.serial_port)
+        self.serial_connect.emit([combo.currentData() for combo in self.combo_serial])
 
     def serial_connected(self, connected: bool):
         if connected:
             return
 
         self.serial_refresh_ports()
-        self.combo_serial.setEnabled(True)
+        [combo.setEnabled(True) for combo in self.combo_serial]
         self.btn_refresh.setEnabled(True)
         self.btn_connect_serial.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
 
@@ -262,13 +273,16 @@ class Config(yaml.YAMLObject):
         self.osc_send_autostart = True
         self.osc_receive_autostart = True
         self.channels = [1,2]
-        self.serial_port = ""
+        self.serial_port_0 = ""
+        self.serial_port_1 = ""
         self.autostart = False
+        # This value must match the N_CHANNELS used for the hardware
+        self.n_channels = 24
 
         self.trackers = []
         for i in range(7):
             self.trackers.append(TrackerConfig(
-                                    channels=[2*i+1, 2*i+2],
+                                    channels=[2*i, 2*i+1],
                                     threshold=[35] * 2,
                                     duration=[5] * 2,
                                     axes=[[True] * 6, [True] * 6],

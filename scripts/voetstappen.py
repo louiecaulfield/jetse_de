@@ -5,8 +5,8 @@ from PyQt6.QtCore import QThreadPool, pyqtSlot, pyqtSignal, QTimer, QSize
 
 from worker import Worker
 from interface import SensorInterface
+from packet import ChannelConfig, LogPacket
 from config import Config, ConfigForm
-from packet import Packet
 from tracker import TrackerFilter, TrackerTable
 from rate import RateCounter
 from osc_client import OscClient
@@ -28,7 +28,7 @@ class MainWindow(QMainWindow):
 
         super().__init__()
         self.threadpool = QThreadPool()
-        self.interface = None
+        self.interfaces = []
         self.osc_client = None
         self.osc_server = None
 
@@ -53,7 +53,6 @@ class MainWindow(QMainWindow):
         # Tracker table
         self.trackers = TrackerTable(self.config)
         self.trackers.config_changed.connect(self.config_changed)
-        self.serial_connected.connect(self.trackers.interface_connected)
         layout.addWidget(self.config_widget)
         layout.addWidget(self.trackers)
 
@@ -83,37 +82,51 @@ class MainWindow(QMainWindow):
 
     def update_status(self):
         rates = {}
-        if self.interface:
-            rates["interface"] = self.interface.rate()
-        # rates.update({f"CH{ch} filt": f.rate() for ch,f in self.filters.items()})
-
-        # rates.update({f"CH{ch} plot": f.rate() for ch,f in self.plots.items()})
+        for (i, interface) in enumerate(self.interfaces):
+            rates[f"interface {i}"] = interface.rate()
 
         status = " - ".join([f"{k}: [{v:5.2f}Hz]" for k,v in rates.items()])
         self.statusBar().showMessage(status)
 
-    def serial_connect(self, port):
-        if self.interface is None:
-            print(f"Connecting to {port}")
-            if port is None:
-                self.statusBar().showMessage("no interface selected")
-                self.serial_connected.emit(False)
-                return
+    def serial_connect(self, ports: List[str]):
+        if len(self.interfaces)  == 0:
+            for port in ports:
+                if port is None:
+                    # TODO: Pop up to warn incomplete set of interfaces
+                    print("WARNING: Not all serial ports are set up!")
+                    continue
 
-            self.interface = SensorInterface(port)
-            self.interface.signals.result.connect(self.trackers.process)
-            self.interface.signals.finished.connect(self.on_serial_disconnect)
-            self.trackers.update_config.connect(self.interface.update_config)
-            self.threadpool.start(self.interface)
+                interface = SensorInterface(port, self.config.n_channels)
+                self.interfaces.append(interface)
+                interface.signals.result.connect(self.trackers.process)
+                interface.signals.result.connect(self.handle_log_packet)
+                interface.signals.finished.connect(self.on_serial_disconnect)
+                for tracker in self.config.trackers:
+                    for offset in range(2):
+                        config = ChannelConfig(tracker.channels[offset], tracker.threshold[offset], tracker.duration[offset])
+                        interface.update_config(config)
+
+                self.trackers.update_config.connect(interface.update_config)
+                self.threadpool.start(interface)
             self.serial_connected.emit(True)
         else:
-            print("Stopping")
-            self.interface.stop()
+
+            [interface.stop() for interface in self.interfaces]
 
     def on_serial_disconnect(self):
-        print("Sensor interface disconnected")
-        self.interface = None
-        self.serial_connected.emit(False)
+        for interface in self.interfaces:
+            if interface.signals == self.sender():
+                self.interfaces.remove(interface)
+                continue
+            interface.stop()
+
+        if len(self.interfaces) == 0:
+            self.serial_connected.emit(False)
+
+    def handle_log_packet(self, packet: LogPacket):
+        if not isinstance(packet, LogPacket):
+            return
+        print(f"[SERIAL LOG] {packet.msg}")
 
     def osc_tx_connect(self):
         if self.osc_client is None:
@@ -167,8 +180,8 @@ class MainWindow(QMainWindow):
             if result == QMessageBox.StandardButton.Yes:
                 self.config_widget.save_clicked()
 
-        if self.interface:
-            self.interface.stop()
+        for interface in self.interfaces:
+            interface.stop()
         if self.osc_client:
             self.osc_client.stop()
         if self.osc_server:

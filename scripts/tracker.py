@@ -11,7 +11,7 @@ from typing import List
 from math import inf
 from rate import RateCounter
 from typing import List, Dict
-from packet import Packet, Config
+from packet import ChannelEventPacket, ChannelConfig
 
 
 class Columns:
@@ -46,11 +46,11 @@ class QLabelDblClick(QLabel):
 
 
 class TrackerTable(QTableWidget):
-    update_config = pyqtSignal(Config) # Channel ID, Config
+    update_config = pyqtSignal(ChannelConfig) # Channel ID, Config
     config_changed = pyqtSignal()
 
-    #               0        1         2           3       4       5       6                                   13           14       15        16
-    columns = ["tracker", "alias", "channel", "threshold", "", "duration", ""] + Packet.motion_keys_short + ["rate", "rpt same", "rpt diff", "cue"]
+    #               0        1         2           3       4       5       6                                               13           14       15        16
+    columns = ["tracker", "alias", "channel", "threshold", "", "duration", ""] + ChannelEventPacket.motion_keys_short + ["rate", "rpt same", "rpt diff", "cue"]
 
     n_trackers = 0
 
@@ -114,7 +114,7 @@ class TrackerTable(QTableWidget):
             case Columns.CH:
                 # print(f"Channel changed for tracker {tracker_id} -> {arg}")
                 tracker.channels[offset] = arg
-                self.update_config.emit(Config(tracker.channels[offset], tracker.threshold[offset], tracker.duration[offset]))
+                self.update_config.emit(ChannelConfig(tracker.channels[offset], tracker.threshold[offset], tracker.duration[offset]))
                 self.rates[row].reset()
 
             case Columns.THR_SLIDER:
@@ -124,7 +124,7 @@ class TrackerTable(QTableWidget):
             case Columns.THR_SPIN:
                 # print(f"Threshold spinner changed for tracker {tracker_id} -> {arg}")
                 tracker.threshold[offset] = arg
-                self.update_config.emit(Config(tracker.channels[offset], tracker.threshold[offset], tracker.duration[offset]))
+                self.update_config.emit(ChannelConfig(tracker.channels[offset], tracker.threshold[offset], tracker.duration[offset]))
 
             case Columns.DUR_SLIDER:
                 # print(f"Duration slider changed for tracker {tracker_id} -> {arg}")
@@ -133,7 +133,7 @@ class TrackerTable(QTableWidget):
             case Columns.DUR_SPIN:
                 # print(f"Duration spinner changed for tracker {tracker_id} -> {arg}")
                 tracker.duration[offset] = arg
-                self.update_config.emit(Config(tracker.channels[offset], tracker.threshold[offset], tracker.duration[offset]))
+                self.update_config.emit(ChannelConfig(tracker.channels[offset], tracker.threshold[offset], tracker.duration[offset]))
 
             case axis if column in Columns.AXES:
                 axis -= Columns.AXES[0]
@@ -174,7 +174,7 @@ class TrackerTable(QTableWidget):
 
         for i in range(2):
             channel = QSpinBox()
-            channel.setMinimum(1)
+            channel.setMinimum(0)
             channel.setMaximum(100)
             channel.setValue(config.channels[i])
             channel.valueChanged.connect(self.table_value_changed)
@@ -221,7 +221,7 @@ class TrackerTable(QTableWidget):
             self.duration_spinners[row+i] = duration_spin
 
             # Motion axes
-            for j, axis in enumerate(Packet.motion_keys_short):
+            for j, axis in enumerate(ChannelEventPacket.motion_keys_short):
                 axis_checkbox = QCheckBox()
                 axis_checkbox.setChecked(config.axes[i][j])
                 axis_checkbox.stateChanged.connect(self.table_value_changed)
@@ -255,7 +255,10 @@ class TrackerTable(QTableWidget):
 
         self.visualise_tracker_enabled(idx)
 
-    def process(self, packet: Packet):
+    def process(self, packet: ChannelEventPacket):
+        if not isinstance(packet, ChannelEventPacket):
+            return
+
         for filter in self.filters:
             filter.process(packet)
 
@@ -263,7 +266,7 @@ class TrackerTable(QTableWidget):
             if(self.cellWidget(row, Columns.CH).value() == packet.id):
                 self.updateRowChannelInfo(row, packet)
 
-    def updateRowChannelInfo(self, row: int, packet: Packet):
+    def updateRowChannelInfo(self, row: int, packet: ChannelEventPacket):
         self.rates[row].event()
 
         if packet.cfg_update:
@@ -357,7 +360,7 @@ class TrackerTable(QTableWidget):
 
                 if emit_update:
                     print(f"Emitting update for tracker {tracker.alias}[{i}]")
-                    self.update_config.emit(Config(tracker.channels[j], tracker.threshold[j], tracker.duration[j]))
+                    self.update_config.emit(ChannelConfig(tracker.channels[j], tracker.threshold[j], tracker.duration[j]))
 
 
     def update_rates(self):
@@ -400,16 +403,6 @@ class TrackerTable(QTableWidget):
         label = self.cellWidget(row, Columns.INDEX)
         self.flash(label)
 
-    def interface_connected(self, connected: bool):
-        if not connected:
-            return
-
-        for tracker in self.config.trackers:
-            for i, ch in enumerate(tracker.channels):
-                cfg = Config(ch, tracker.threshold[i], tracker.duration[i])
-                print(f"Sending config to tracker of channel {ch} [{cfg}]")
-                self.update_config.emit(cfg)
-
 class TrackerFilter(QObject):
     cue = pyqtSignal(str, object, int) # cue, filter, channel offset
 
@@ -426,7 +419,7 @@ class TrackerFilter(QObject):
         # self.timeout.connect(self.emit)
         self.start_time = time.time()
 
-    def process(self, packet: Packet):
+    def process(self, packet: ChannelEventPacket):
         if packet.id not in self.config.channels:
             return
 

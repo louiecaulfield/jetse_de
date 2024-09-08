@@ -4,7 +4,10 @@
 #include <Arduino.h>
 
 
+#ifndef log
 #define log(level, msg) Serial.print(level);Serial.println(msg)
+#endif
+
 char debug_msg[100] = "";
 #if SERIAL_DEBUG_TRACKER
 #define log_debug(x) log("[DBG]", x)
@@ -19,15 +22,40 @@ char debug_msg[100] = "";
 #define xstr(s) str(s)
 #define str(s) #s
 
-#define CHANNEL_ZERO 0xBAE1F00100
-#define address_for(channel) (CHANNEL_ZERO | (channel & 0xFF))
+#ifndef N_RECEIVERS
+#error The number of receivers should be defined by N_RECEIVERS
+#endif
 
-#define PIPES_PER_RADIO 6
+#ifndef N_CHANNELS
+#error The number of channels should be defined by N_CHANNELS
+#endif
+
+#define N_PIPES (6)
+#define CHANNELS_PER_PIPE ((N_CHANNELS + N_PIPES - 1) / N_PIPES)
+#define pipe_for_channel(channel) ((channel / CHANNELS_PER_PIPE) & 0x7)
+
+#define PIPE_ADDRESS_BASE 0xBAE1F00100
+#define pipe_address_for_channel(channel) (PIPE_ADDRESS_BASE | pipe_for_channel(channel))
+
 #define FREQ_BASE 100
-#define frequency_for(channel) (FREQ_BASE + (((channel - 1) & 0xff) / PIPES_PER_RADIO))
+#define frequency_for_receiver(receiver) (FREQ_BASE + receiver)
 
-struct __attribute__ ((packed)) packet_t {
-    /* Detector ID */
+#if ((FREQ_BASE + N_RECEIVERS) > 125)
+#error N_RECEIVERS too large, resulting in frequency beyond maximum 2525 MHz
+#endif
+
+
+/* Channel config */
+struct __attribute__ ((packed)) channel_config_t {
+    uint8_t threshold;
+    uint8_t duration;
+};
+
+/* Channel configs belonging to a certain pipe */
+typedef channel_config_t pipe_config_t[CHANNELS_PER_PIPE];
+
+struct __attribute__ ((packed)) channel_event_t {
+    /* Tracker's channel ID, zero-based */
     uint8_t id;
 
     /* Time of system and last interrupts */
@@ -53,20 +81,48 @@ struct __attribute__ ((packed)) packet_t {
         uint8_t cfg_threshold_update:1;
         uint8_t cfg_duration_update:1;
     };
-    uint8_t cfg_threshold;
-    uint8_t cfg_duration;
+    channel_config_t cfg;
 };
 
-struct __attribute__ ((packed)) conf_t {
-    uint8_t id;
-    uint8_t threshold;
-    uint8_t duration;
-};
 
-struct __attribute__ ((packed)) packet_conf_t {
+/* Channel event packet as sent over serial interface */
+struct __attribute__ ((packed)) packet_channel_event_t {
     uint16_t magic;
-    conf_t payload;
+    uint8_t ptype;
+    channel_event_t payload;
     uint8_t checksum;
 };
+
+/* Channel config request packet as transmitted over serial interface */
+struct __attribute__ ((packed)) packet_channel_config_req_t {
+    uint16_t magic;
+    uint8_t ptype;
+    uint8_t channel;
+    uint8_t checksum;
+};
+
+/* Channel config packet as received over serial interface */
+struct __attribute__ ((packed)) packet_channel_config_t {
+    uint16_t magic;
+    uint8_t ptype;
+    uint8_t channel;
+    channel_config_t config;
+    uint8_t checksum;
+};
+
+struct __attribute__ ((packed)) packet_log_t {
+    uint16_t magic;
+    uint8_t ptype;
+    char msg[200];
+    uint8_t checksum;
+};
+
+
+#define PACKET_MAGIC (0xBAE1)
+
+#define PACKET_TYPE_LOG                 (0)
+#define PACKET_TYPE_CHANNEL_EVENT       (1)
+#define PACKET_TYPE_CHANNEL_CONFIG_REQ  (2)
+#define PACKET_TYPE_CHANNEL_CONFIG      (3)
 
 #endif // _PACKET_H_

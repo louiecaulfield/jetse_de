@@ -4,15 +4,22 @@
 #include <packet.h>
 
 #ifndef CHANNEL
-#define CHANNEL 1
+#define CHANNEL 0
+#endif
+
+#if (CHANNEL >= N_CHANNELS)
+#error Channel must be less than N_CHANNELS
 #endif
 
 #define POWERSAVE true
 #define KEEPALIVE_TIMEOUT 100
 
-packet_t packet = {};
-conf_t config = { .id = CHANNEL, .threshold = 20, .duration = 10 };
-void update_config(conf_t* config);
+uint8_t current_receiver = 0;
+
+channel_event_t packet = {};
+channel_config_t config = { .threshold = 20, .duration = 10 };
+void update_config(channel_config_t* config);
+pipe_config_t pipe_config;
 
 #include <SPI.h>
 #include <nRF24L01.h>
@@ -93,28 +100,30 @@ void setup(void) {
   radio.enableDynamicPayloads();
   radio.enableAckPayload();
   radio.setDataRate(RF24_1MBPS);
-  radio.setChannel(frequency_for(CHANNEL));
+  radio.setChannel(frequency_for_receiver(current_receiver));
 
-  radio.openWritingPipe(address_for(CHANNEL));
+  radio.openWritingPipe(pipe_address_for_channel(CHANNEL));
   radio.stopListening();
-  log_info_fmt("Radio setup done - channel %d at freq %d", CHANNEL, 2400 + frequency_for(CHANNEL));
+  log_info_fmt("Radio setup done - channel %d to pipe %d at freq %d MHz", CHANNEL, pipe_for_channel(CHANNEL), 2400 + radio.getChannel());
 
   packet.id = CHANNEL;
-  log_info_fmt("Accelero tracker initialized on channel %d", CHANNEL);
+  log_info_fmt("Accelero tracker initialized for channel %d", CHANNEL);
 }
 
-void update_config(conf_t* config) {
-  log_info_fmt("CONF [%d] THR [%d] DUR [%d]", config->id, config->threshold, config->duration);
-  if(config->id == CHANNEL) {
-    mpu.setMotionDetectionDuration(config->duration);
-    mpu.setMotionDetectionThreshold(config->threshold);
-    packet.cfg_threshold = config->threshold;
-    packet.cfg_duration = config ->duration;
-    packet.cfg_threshold_update = true;
-    packet.cfg_duration_update = true;
-  } else {
-    log_info_fmt("Config received for wrong channel %d (expecting " xstr(CHANNEL) ")", config->id);
+void update_config(channel_config_t* config) {
+  log_info_fmt("CONF [%d] THR [%d] DUR [%d]", CHANNEL, config->threshold, config->duration);
+  if(config->duration  == packet.cfg.duration &&
+     config->threshold == packet.cfg.threshold)
+  {
+    log_debug("Ignoring config update, no change");
+    return;
   }
+  mpu.setMotionDetectionDuration(config->duration);
+  mpu.setMotionDetectionThreshold(config->threshold);
+  packet.cfg.threshold = config->threshold;
+  packet.cfg.duration = config ->duration;
+  packet.cfg_threshold_update = true;
+  packet.cfg_duration_update = true;
 }
 
 uint8_t pipe = 0;
@@ -148,16 +157,29 @@ void loop() {
       sizeof(packet),
       last_motion);
 
-    if(radio.write(&packet, sizeof(packet))) {
-      packet.cfg_update = 0;
-      if (radio.available(&pipe)) {
-        uint8_t size = radio.getDynamicPayloadSize();
-        if(size != sizeof(config)) {
-          log_debug_fmt("Unexpected ACK payload size of %d", size);
+    uint8_t rx_offset;
+    for(rx_offset = 0; rx_offset < N_RECEIVERS; rx_offset++) {
+      if(radio.write(&packet, sizeof(packet))) {
+        packet.cfg_update = 0;
+        while (radio.available(&pipe)) {
+          uint8_t size = radio.getDynamicPayloadSize();
+          if(size != sizeof(pipe_config)) {
+            log_info_fmt("Unexpected ACK payload size of %d - Flushing RX buffers", size);
+            radio.flush_rx();
+          } else {
+            radio.read(&pipe_config, sizeof(pipe_config));
+            update_config(&pipe_config[CHANNEL % CHANNELS_PER_PIPE]);
+          }
         }
-        radio.read(&config, sizeof(config));
-        update_config(&config);
+        break;
       }
+      current_receiver = (current_receiver + 1) % N_RECEIVERS;
+      radio.setChannel(frequency_for_receiver(current_receiver));
+      log_debug_fmt("Changed frequency to %d MHz", 2400 + radio.getChannel());
+    }
+
+    if(rx_offset == N_RECEIVERS) {
+      log_debug("Failed to send packet");
     }
   }
 }
