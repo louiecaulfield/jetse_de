@@ -2,7 +2,8 @@ from time import time
 from collections import deque
 
 class RateCounter:
-    def __init__(self, count):
+    def __init__(self, count, max_age_ms = 1000):
+        self.max_age_ms = max_age_ms
         self.timestamps = deque(maxlen=count)
 
     def event(self):
@@ -18,5 +19,7 @@ class RateCounter:
 
     def __call__(self) -> float:
         if len(self.timestamps) < 2:
+            return 0
+        if self.older_than(self.max_age_ms):
             return 0
         return (len(self.timestamps) - 1) / (self.timestamps[-1] - self.timestamps[0])
