@@ -17,7 +17,8 @@ RF24 radio(RADIO_CE_CS);
 
 packet_channel_event_t packet_event = {
   .magic = PACKET_MAGIC,
-  .ptype = PACKET_TYPE_CHANNEL_EVENT
+  .ptype = PACKET_TYPE_CHANNEL_EVENT,
+  .freq  = frequency_for_receiver(RECEIVER_ID)
 };
 packet_channel_config_req_t packet_cfg_req = {
   .magic = PACKET_MAGIC,

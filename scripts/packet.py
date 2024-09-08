@@ -29,13 +29,14 @@ class LogPacket(Packet):
 class ChannelEventPacket(Packet):
     motion_keys =  ["z_pos", "z_neg", "y_pos", "y_neg", "x_pos", "x_neg"]
     motion_keys_short =  ["Z", "z", "Y", "y", "X", "x"]
-    format = '<BLLhhhBBBB'
+    format = '<BBLLhhhBBBB'
     size = struct.calcsize(format)
 
-    def __init__(self, id:int, sensor_time:int,
+    def __init__(self, frequency: int, id:int, sensor_time:int,
                  cfg_update: bool, threshold: int, duration: int,
                  motion: list[bool], motion_time: int, acc:tuple[float, float, float]):
         self.host_time = time()
+        self.frequency = frequency
         self.id = id
         self.cfg_update = cfg_update
         self.threshold = threshold
@@ -61,13 +62,13 @@ class ChannelEventPacket(Packet):
             print(f"ChannelEventPacket payload bad size {len(buf)} != {cls.size}")
             return None
 
-        (id, sensor_time,
+        (frequency, id, sensor_time,
             time_last_motion,
             acc_x, acc_y, acc_z,
             motion_status,
             cfg_update, cfg_threshold, cfg_duration) = struct.unpack(cls.format, buf)
 
-        return cls(id, sensor_time,
+        return cls(frequency, id, sensor_time,
                    cfg_update, cfg_threshold, cfg_duration,
                     [(motion_status & (1 << i) != 0) for i in range(8)][2:],
                     time_last_motion,

@@ -90,6 +90,7 @@ struct __attribute__ ((packed)) channel_event_t {
 struct __attribute__ ((packed)) packet_channel_event_t {
     uint16_t magic;
     uint8_t ptype;
+    uint8_t freq; /* RF24 channel = actual frequency - 2400MHz */
     channel_event_t payload;
     uint8_t checksum;
 };
