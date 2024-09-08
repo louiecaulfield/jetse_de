@@ -10,7 +10,7 @@ import serial
 class SensorInterface(QRunnable):
     def __init__(self, port: str):
         super(SensorInterface, self).__init__()
-        self.rate = RateCounter(100)
+        self.rate = RateCounter(10)
         self.portname = port
         self.running = False
         self.signals = WorkerSignals()
@@ -47,9 +47,10 @@ class SensorInterface(QRunnable):
 
 
         except:
-            traceback.print_exc()
-            exctype, value = sys.exc_info()[:2]
-            self.signals.error.emit((exctype, value, traceback.format_exc()))
+            if self.running:
+                traceback.print_exc()
+                exctype, value = sys.exc_info()[:2]
+                self.signals.error.emit((exctype, value, traceback.format_exc()))
         finally:
             try:
                 self.signals.finished.emit()
