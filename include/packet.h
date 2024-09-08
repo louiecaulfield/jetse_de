@@ -38,9 +38,10 @@ char debug_msg[100] = "";
 #define pipe_address_for_channel(channel) (PIPE_ADDRESS_BASE | pipe_for_channel(channel))
 
 #define FREQ_BASE 100
-#define frequency_for_receiver(receiver) (FREQ_BASE + receiver)
+// Space frequencies by 8 MHz (1<<3=8)
+#define frequency_for_receiver(receiver) (FREQ_BASE + ((receiver) << 3))
 
-#if ((FREQ_BASE + N_RECEIVERS) > 125)
+#if ((FREQ_BASE + ((N_RECEIVERS - 1) << 3)) > 125)
 #error N_RECEIVERS too large, resulting in frequency beyond maximum 2525 MHz
 #endif
 
