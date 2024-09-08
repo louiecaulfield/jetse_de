@@ -24,9 +24,10 @@ class Columns:
     DUR_SPIN    = 6
     AXES        = tuple(range(7,13))
     RATE        = 13
-    REPEAT_SAME = 14
-    REPEAT_DIFF = 15
-    CUE         = 16
+    FREQ        = 14
+    REPEAT_SAME = 15
+    REPEAT_DIFF = 16
+    CUE         = 17
 
 class Colors:
     GOOD        = "b6ef8e"
@@ -49,8 +50,8 @@ class TrackerTable(QTableWidget):
     update_config = pyqtSignal(ChannelConfig) # Channel ID, Config
     config_changed = pyqtSignal()
 
-    #               0        1         2           3       4       5       6                                               13           14       15        16
-    columns = ["tracker", "alias", "channel", "threshold", "", "duration", ""] + ChannelEventPacket.motion_keys_short + ["rate", "rpt same", "rpt diff", "cue"]
+    #               0        1         2           3       4       5       6                                               13      14       15           16        17
+    columns = ["tracker", "alias", "channel", "threshold", "", "duration", ""] + ChannelEventPacket.motion_keys_short + ["rate", "freq", "rpt same", "rpt diff", "cue"]
 
     n_trackers = 0
 
@@ -63,6 +64,7 @@ class TrackerTable(QTableWidget):
         self.threshold_spinners = {}
         self.duration_sliders   = {}
         self.duration_spinners  = {}
+        self.freq_labels        = {}
 
         self.filters = []
         self.rates = {}
@@ -85,6 +87,7 @@ class TrackerTable(QTableWidget):
         header.setSectionResizeMode(Columns.THR_SLIDER, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(Columns.DUR_SLIDER, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(Columns.RATE, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(Columns.FREQ, QHeaderView.ResizeMode.Stretch)
 
         self.packets = {}
         self.flash_timers : Dict[QWidget, QTimer] = {}
@@ -143,6 +146,9 @@ class TrackerTable(QTableWidget):
 
             case Columns.RATE:
                 # print(f"Rate changed for tracker {tracker_id} -> {arg}")
+                raise Exception("IMPOSSIBLE")
+
+            case Columns.FREQ:
                 raise Exception("IMPOSSIBLE")
 
             case Columns.REPEAT_SAME:
@@ -233,6 +239,12 @@ class TrackerTable(QTableWidget):
             self.setCellWidget(row + i, Columns.RATE, rate_label)
             self.rates[row+i] = RateCounter(5)
 
+            freq_label = QLabel()
+            freq_label.setText("-- MHz")
+            freq_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.setCellWidget(row + i, Columns.FREQ, freq_label)
+            self.freq_labels[row+i] = freq_label
+
         # Repeat rate
         repeat_same_spin = QSpinBox()
         repeat_same_spin.setMinimum(0)
@@ -279,6 +291,8 @@ class TrackerTable(QTableWidget):
             self.duration_sliders[row].setValue(packet.duration)
             self.duration_spinners[row].setValue(packet.duration)
             self.duration_spinners[row].blockSignals(False)
+
+        self.freq_labels[row].setText(f"{packet.frequency + 2400} MHz")
 
         last_packet = self.packets.get(packet.id, None)
         if last_packet is None or packet.motion_time != last_packet.motion_time:
