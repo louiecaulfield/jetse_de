@@ -141,6 +141,12 @@ void setup() {
   packet_serial.setStream(&Serial);
   packet_serial.setPacketHandler(& handle_packet);
 
+  if(RECEIVER_OFFSET + N_RADIOS > N_RECEIVERS) {
+    log_info_fmt("More radios (%d) than allowed for %d receivers with receiver offset %d", N_RADIOS, N_RECEIVERS, RECEIVER_OFFSET);
+    log_info("Halting");
+    while(true);
+  }
+
   log_debug("Initializing channel configuration");
   for(uint8_t ch = 0; ch < N_CHANNELS; ch++) {
     channel_config[ch] = {.threshold=255, .duration=255};
@@ -184,6 +190,8 @@ void setup() {
   }
   for(RF24 radio: radios)
     radio.startListening();
+
+  log_info_fmt("Receiver at offset %d with %d radios initialized", RECEIVER_OFFSET, N_RADIOS);
 }
 
 void loop() {
