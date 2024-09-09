@@ -122,9 +122,10 @@ struct __attribute__ ((packed)) packet_log_t {
 
 #define PACKET_MAGIC (0xBAE1)
 
-#define PACKET_TYPE_LOG                 (0)
-#define PACKET_TYPE_CHANNEL_EVENT       (1)
-#define PACKET_TYPE_CHANNEL_CONFIG_REQ  (2)
-#define PACKET_TYPE_CHANNEL_CONFIG      (3)
+#define PACKET_TYPE_LOG                 (0x00)
+#define PACKET_TYPE_CHANNEL_EVENT       (0x01)
+#define PACKET_TYPE_CHANNEL_CONFIG_REQ  (0x02)
+#define PACKET_TYPE_CHANNEL_CONFIG      (0x03)
+#define PACKET_TYPE_RESET               (0x55)
 
 #endif // _PACKET_H_

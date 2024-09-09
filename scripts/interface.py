@@ -34,7 +34,7 @@ class SensorInterface(QRunnable):
 
     def send_config(self, channel):
         config = self.channel_config[channel]
-        buf = cobs.encode(config.packet_bytes()) + b'\x00'
+        buf = cobs.encode(config.get_bytes()) + b'\x00'
         for tries in range(20):
             self.port.write(buf)
 
@@ -46,6 +46,8 @@ class SensorInterface(QRunnable):
 
         raise Exception(f"Failed to get ACK on config for channel {channel}")
 
+    def send_reset(self):
+        self.port.write(cobs.encode(ResetPacket().get_bytes()) + b'\x00')
 
     def get_config_from_q(self):
         while not self.config_q.empty():
@@ -68,6 +70,7 @@ class SensorInterface(QRunnable):
             self.port.timeout = None
             self.port.close()
             self.port.open()
+            self.send_reset()
             self.port.dtr = False
             sleep(0.1)
             self.port.dtr = True

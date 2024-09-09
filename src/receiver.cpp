@@ -80,6 +80,7 @@ void serial_tx_chan_cfg_req(uint8_t channel) {
   packet_serial.send((uint8_t *)&packet_cfg_req, sizeof(packet_cfg_req));
 }
 
+void(* resetFunc) (void) = 0; //declare reset function @ address 0
 
 void handle_packet(const uint8_t * buf, size_t size) {
   /* To be implementeed */
@@ -125,9 +126,14 @@ void handle_packet(const uint8_t * buf, size_t size) {
              packet->channel % CHANNELS_PER_PIPE);
       return;
     }
+    case PACKET_TYPE_RESET:
+      log_info("Resetting");
+      delay(100);
+      resetFunc();
+      while(true);
     default:
     {
-      log_debug_fmt("Unsupported packet type %d", buf[2]);
+      log_info_fmt("Unsupported packet type %d", buf[2]);
       return;
     }
   }

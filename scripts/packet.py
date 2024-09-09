@@ -3,10 +3,11 @@ from random import random
 from time import time
 
 class PacketType:
-    LOG                 = 0
-    CHANNEL_EVENT       = 1
-    CHANNEL_CONFIG_REQ  = 2
-    CHANNEL_CONFIG      = 3
+    LOG                 = 0x00
+    CHANNEL_EVENT       = 0x01
+    CHANNEL_CONFIG_REQ  = 0x02
+    CHANNEL_CONFIG      = 0x03
+    RESET               = 0x55
 
 class Packet():
     format_header = '<HB' # Magic + packet type
@@ -14,6 +15,11 @@ class Packet():
     size_header = struct.calcsize(format_header)
     size_footer = struct.calcsize(format_footer)
     size_min = size_header + size_footer
+
+    def wrap_payload(self, ptype: int, payload: bytes) -> bytes:
+        buf = bytearray([0xE1, 0xBA, ptype]) + payload
+        buf.append(sum(buf) & 0xff)
+        return bytes(buf)
 
 class LogPacket(Packet):
     def __init__(self, msg):
@@ -94,7 +100,7 @@ class ChannelConfigRequestPacket(Packet):
 
         return cls(channel)
 
-class ChannelConfig():
+class ChannelConfig(Packet):
     format = '<BBB'
     size = struct.calcsize(format)
 
@@ -109,10 +115,9 @@ class ChannelConfig():
                self.threshold == other.threshold and \
                self.duration  == other.duration
 
-    def packet_bytes(self) -> bytes:
-        payload = [0xE1, 0xBA, PacketType.CHANNEL_CONFIG, self.channel, self.threshold, self.duration]
-        payload.append(sum(payload) & 0xff)
-        return bytes(payload)
+    def get_bytes(self) -> bytes:
+        return self.wrap_payload(PacketType.CHANNEL_CONFIG,
+                                 struct.pack(self.format, self.channel, self.threshold, self.duration))
 
     @classmethod
     def from_payload(cls, buf) -> "ChannelConfig":
@@ -126,6 +131,10 @@ class ChannelConfig():
 
     def __repr__(self):
         return f"[ChanCfg|{self.channel:2d}:THR{self.threshold}:DUR{self.duration}]"
+
+class ResetPacket(Packet):
+    def get_bytes(self) -> bytes:
+        return self.wrap_payload(PacketType.RESET, bytes())
 
 def packet_from_bytes(buf) -> "Packet":
     if len(buf) < Packet.size_min:
