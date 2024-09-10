@@ -283,7 +283,7 @@ class Config(yaml.YAMLObject):
         self.n_channels = 24
 
         self.trackers = []
-        for i in range(7):
+        for i in range(12):
             self.trackers.append(TrackerConfig(
                                     channels=[2*i, 2*i+1],
                                     threshold=[35] * 2,
