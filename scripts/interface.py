@@ -109,7 +109,10 @@ class SensorInterface(QRunnable):
 
     def stop(self):
         self.running = False
-        self.port.cancel_read()
+        try:
+            self.port.cancel_read()
+        except Exception as e:
+            print("Failed to cancel serial port operation" + str(e))
 
     def update_config(self, config:  ChannelConfig):
         self.config_q.put(config)
