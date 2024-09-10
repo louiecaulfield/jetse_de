@@ -64,48 +64,58 @@ class SensorInterface(QRunnable):
 
     @pyqtSlot()
     def run(self):
+        attempts = 10
+        self.running = True
         try:
-            self.running = True
-            self.port = serial.Serial(self.portname, 115200, dsrdtr=True)
-            self.port.timeout = None
-            self.port.close()
-            self.port.open()
-            self.send_reset()
-            self.port.dtr = False
-            sleep(0.1)
-            self.port.dtr = True
-
             while(self.running):
-                packet = self.receive(10)
-                match packet:
-                    case ChannelEventPacket():
-                        self.rate.event()
-                        self.signals.result.emit(packet)
-                    case ChannelConfigRequestPacket():
+                try:
+                    self.port = serial.Serial(self.portname, 115200, dsrdtr=True)
+                    self.port.timeout = None
+                    self.port.close()
+                    self.port.open()
+                    self.send_reset()
+                    self.port.dtr = False
+                    sleep(0.1)
+                    self.port.dtr = True
+
+                    while(self.running):
+                        packet = self.receive(10)
+                        match packet:
+                            case ChannelEventPacket():
+                                self.rate.event()
+                                self.signals.result.emit(packet)
+                            case ChannelConfigRequestPacket():
+                                self.get_config_from_q()
+                                self.send_config(packet.channel)
+                                continue
+                            case LogPacket():
+                                self.signals.result.emit(packet)
+                                continue
+                            case _:
+                                print(f"Received garbage on {self.portname}")
+                                continue
+
                         self.get_config_from_q()
-                        self.send_config(packet.channel)
-                        continue
-                    case LogPacket():
-                        self.signals.result.emit(packet)
-                        continue
-                    case _:
-                        print(f"Received garbage on {self.portname}")
-                        continue
-
-                self.get_config_from_q()
-                self.send_dirty_config()
-
+                        self.send_dirty_config()
+                except Exception as e:
+                    if attempts == 0 or not self.running:
+                        raise e
+                    attempts -= 1
+                    # traceback.print_exc()
+                    # print(e)
+                    print("[!!!] Port communication failed - restarting")
+                    sleep(0.1)
         except:
-            if self.running:
-                traceback.print_exc()
-                exctype, value = sys.exc_info()[:2]
-                self.signals.error.emit((exctype, value, traceback.format_exc()))
+            traceback.print_exc()
+            exctype, value = sys.exc_info()[:2]
+            self.signals.error.emit((exctype, value, traceback.format_exc()))
         finally:
-            self.port.close()
             try:
                 self.signals.finished.emit()
             except RuntimeError:
                 print("SensorInterface not sending finished signal - quitting")
+            finally:
+                self.port.close()
 
     def stop(self):
         self.running = False
