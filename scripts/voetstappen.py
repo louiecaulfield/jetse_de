@@ -96,7 +96,7 @@ class MainWindow(QMainWindow):
                     print("WARNING: Not all serial ports are set up!")
                     continue
 
-                interface = SensorInterface(port, self.config.n_channels)
+                interface = SensorInterface(port, self.config.n_channels, self.config.infinite_retry)
                 self.interfaces.append(interface)
                 interface.signals.result.connect(self.trackers.process)
                 interface.signals.result.connect(self.handle_log_packet)

@@ -10,13 +10,14 @@ from cobs import cobs
 from time import sleep
 
 class SensorInterface(QRunnable):
-    def __init__(self, port: str, n_channels: int):
+    def __init__(self, port: str, n_channels: int, infinite_retry: bool):
         super(SensorInterface, self).__init__()
         self.rate = RateCounter(10)
         self.portname = port
         self.running = False
         self.signals = WorkerSignals()
         self.config_q = Queue()
+        self.infinite_retry = infinite_retry
 
         self.channel_config = [ChannelConfig(i, 255,255) for i in range(n_channels)]
         self.channel_config_dirty = [True for i in range(n_channels)]
@@ -100,7 +101,8 @@ class SensorInterface(QRunnable):
                 except Exception as e:
                     if attempts == 0 or not self.running:
                         raise e
-                    attempts -= 1
+                    if not self.infinite_retry:
+                        attempts -= 1
                     # traceback.print_exc()
                     # print(e)
                     print("[!!!] Port communication failed - restarting")

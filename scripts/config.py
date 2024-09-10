@@ -62,6 +62,14 @@ class ConfigForm(QWidget):
         item.stateChanged.connect(self.update_config)
         form.addRow(self.tr(name), item)
 
+        # Infinite retry
+        tag, name = ("infinite_retry", "infinite retry")
+        item = QCheckBox()
+        item.setCheckState(Qt.CheckState.Checked if self.config.infinite_retry else Qt.CheckState.Unchecked)
+        item.setObjectName(tag)
+        item.stateChanged.connect(self.update_config)
+        form.addRow(self.tr(name), item)
+
         box.setLayout(form)
         layout.addWidget(box)
 
@@ -279,6 +287,7 @@ class Config(yaml.YAMLObject):
         self.serial_port_0 = ""
         self.serial_port_1 = ""
         self.autostart = False
+        self.infinite_retry = False
         # This value must match the N_CHANNELS used for the hardware
         self.n_channels = 24
 
