@@ -177,6 +177,11 @@ void setup() {
   }
   log_debug("All pipes configured");
 
+  for(uint8_t i = 0; i < N_PIPES; i++) {
+    update_pipe[i] = 0;
+  }
+
+
   for(uint8_t i=0; i < N_RADIOS; i++) {
     log_debug_fmt("Initializing radio %d with pins CE/CS %d/%d", i, radios_ce_cs[i*2], radios_ce_cs[i*2+1]);
 
