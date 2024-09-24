@@ -187,6 +187,7 @@ void setup() {
 
     radios[i] = RF24(radios_ce_cs[i*2], radios_ce_cs[i*2+1]);
     radios[i].begin();
+    log_info_fmt("Is radio %d connected? %d", i, radios[i].isChipConnected());
     radios[i].setPALevel(RF24_PA_MAX);
     radios[i].enableDynamicPayloads();
     radios[i].enableAckPayload();
