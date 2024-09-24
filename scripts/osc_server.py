@@ -3,7 +3,7 @@ import sys, traceback
 from worker import WorkerSignals
 
 from pythonosc.dispatcher import Dispatcher
-from pythonosc.osc_server import ThreadingOSCUDPServer
+from pythonosc.osc_server import BlockingOSCUDPServer
 
 from config import Config
 
@@ -23,7 +23,7 @@ class OscServer(QRunnable):
 
         while(self.running):
             print(f"Starting OSC receiver on port {self.config.osc_receive_port}")
-            self.server = ThreadingOSCUDPServer(('', self.config.osc_receive_port), self.dispatcher)
+            self.server = BlockingOSCUDPServer(('', self.config.osc_receive_port), self.dispatcher)
             self.server.serve_forever()  # Blocks forever
             self.server.server_close()
             self.server = None
