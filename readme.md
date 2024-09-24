@@ -26,6 +26,8 @@
 2. Ga naar folder waar het is geinstalleer<br/>
    `cd Documents/DE/voetstappen`
 3. `git pull`
+4. `source .venv/bin/activate`
+5. `pip install -r requirements.txt`
 
 # OSC bediening
 ```
