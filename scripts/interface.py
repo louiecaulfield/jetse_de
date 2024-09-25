@@ -25,6 +25,8 @@ class SensorInterface(QRunnable):
     def receive(self, timeout=None):
         self.port.timeout = timeout
         buf_enc = self.port.read_until(expected=b'\x00')
+        if len(buf_enc) == 0:
+            return None
         try:
             buf = cobs.decode(buf_enc[:-1])
             return packet_from_bytes(buf)
@@ -91,6 +93,8 @@ class SensorInterface(QRunnable):
                                 continue
                             case LogPacket():
                                 self.signals.result.emit(packet)
+                                continue
+                            case None:
                                 continue
                             case _:
                                 print(f"Received garbage on {self.portname}")
