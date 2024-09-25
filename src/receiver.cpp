@@ -196,7 +196,7 @@ void setup() {
 
     for(uint8_t j = 0; j < N_PIPES; j++) {
       radios[i].openReadingPipe(j, PIPE_ADDRESS_BASE + j);
-      log_debug_fmt("Opened reading pipe %d with addr %d on radio %d", j, PIPE_ADDRESS_BASE + j, i);
+      log_debug_fmt("Opened reading pipe %d with addr %lld on radio %d", j, PIPE_ADDRESS_BASE + j, i);
     }
 
   }
