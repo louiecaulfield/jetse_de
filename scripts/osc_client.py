@@ -13,7 +13,7 @@ class OscClient(QRunnable):
         super(OscClient, self).__init__()
         self.config = config
         self.running = False
-        self.signals = WorkerSignals()
+        self.signals = WorkerSignals(self)
         self.cues = queue.Queue()
 
     @pyqtSlot()

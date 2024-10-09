@@ -26,6 +26,10 @@ class WorkerSignals(QObject):
     result = pyqtSignal(object)
     progress = pyqtSignal(int)
 
+    def __init__(self, worker):
+        super(QObject, self).__init__()
+        self.worker = worker
+
 class Worker(QRunnable):
     '''
     Worker thread
@@ -46,7 +50,7 @@ class Worker(QRunnable):
         self.fn = fn
         self.args = args
         self.kwargs = kwargs
-        self.signals = WorkerSignals()
+        self.signals = WorkerSignals(self)
 
     @pyqtSlot()
     def run(self):

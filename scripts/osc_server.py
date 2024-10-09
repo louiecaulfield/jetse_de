@@ -12,7 +12,7 @@ class OscServer(QRunnable):
         super(OscServer, self).__init__()
         self.config = config
         self.running = False
-        self.signals = WorkerSignals()
+        self.signals = WorkerSignals(self)
 
     @pyqtSlot()
     def run(self):

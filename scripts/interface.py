@@ -15,7 +15,7 @@ class SensorInterface(QRunnable):
         self.rate = RateCounter(10)
         self.portname = port
         self.running = False
-        self.signals = WorkerSignals()
+        self.signals = WorkerSignals(self)
         self.config_q = Queue()
         self.infinite_retry = infinite_retry
 
@@ -72,13 +72,15 @@ class SensorInterface(QRunnable):
         try:
             while(self.running):
                 try:
-                    self.port = serial.Serial(self.portname, 115200, dsrdtr=True)
+                    self.port = serial.Serial(self.portname, 115200)
                     self.port.timeout = None
                     self.port.close()
                     self.port.open()
                     self.send_reset()
                     self.port.dtr = False
+                    self.port.rts = True
                     sleep(0.1)
+                    self.port.rts = False
                     self.port.dtr = True
 
                     while(self.running):
