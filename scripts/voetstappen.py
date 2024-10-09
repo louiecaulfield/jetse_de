@@ -126,7 +126,11 @@ class MainWindow(QMainWindow):
     def handle_log_packet(self, packet: LogPacket):
         if not isinstance(packet, LogPacket):
             return
-        print(f"[SERIAL LOG] {packet.msg}")
+        interface = self.sender().worker
+        if not isinstance(interface, SensorInterface):
+            return
+
+        print(f"[{interface.portname}] {packet.msg}")
 
     def osc_tx_connect(self):
         if self.osc_client is None:
